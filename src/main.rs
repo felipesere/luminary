@@ -6,7 +6,7 @@ pub mod aws {
     use std::fmt;
 
     pub struct Provider {
-        region: String, // TODO: Use enums for regions...
+        pub region: String, // TODO: Use enums for regions...
     }
 
     #[derive(Debug, Default, Clone)]
@@ -185,16 +185,45 @@ pub mod aws {
         pub struct PolicyStatement {
             #[builder(default)]
             pub sid: String,
+            #[builder(default = "Effect::Allow")]
             pub effect: Effect,
             pub principal: Principal,
             pub actions: Vec<Action>,
             pub resources: Vec<Resource>,
         }
+
+        impl PolicyStatementBuilder {
+            pub fn allow(&mut self) -> &mut Self {
+                let mut new = self;
+                new.effect = Some(Effect::Allow);
+                new
+            }
+
+            pub fn deny(&mut self) -> &mut Self {
+                let mut new = self;
+                new.effect = Some(Effect::Deny);
+                new
+            }
+
+            pub fn action(&mut self, action: Action) -> &mut Self {
+                let new = self;
+                let actions = new.actions.get_or_insert_with(|| Vec::new());
+                actions.push(action);
+                new
+            }
+
+            pub fn resource(&mut self, resource: Resource) -> &mut Self {
+                let new = self;
+                let resources = new.resources.get_or_insert_with(|| Vec::new());
+                resources.push(resource);
+                new
+            }
+        }
     }
 }
 
-use crate::aws::iam::{self, Action, Effect, Principal, Resource};
-use crate::aws::s3::{self};
+use crate::aws::iam::{self, Action, Principal, Resource};
+use crate::aws::s3;
 use std::rc::Rc;
 
 fn main() {
@@ -216,13 +245,11 @@ fn main() {
 
     let public_can_read = iam::PolicyDocument {
         statements: vec![iam::PolicyStatementBuilder::default()
-            .effect(Effect::Allow)
+            .allow()
             .principal(Principal::AWS("*".into()))
-            .actions(vec![Action::new("s3:GetObject")])
-            .resources(vec![
-                Resource::new(bucket.arn().to_string()),
-                Resource::new(format!("{}/*", bucket.arn().to_string())),
-            ])
+            .action(Action::new("s3:GetObject"))
+            .resource(Resource::new(bucket.arn().to_string()))
+            .resource(Resource::new(format!("{}/*", bucket.arn().to_string())))
             .build()
             .unwrap()],
     };
