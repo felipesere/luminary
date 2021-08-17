@@ -142,7 +142,7 @@ pub mod aws {
         #[derive(Debug)]
         pub struct BucketPolicy {
             pub bucket: Rc<Bucket>,
-            pub policy: PolicyDocument,
+            pub policy: Rc<PolicyDocument>,
         }
     }
 
@@ -224,42 +224,88 @@ pub mod aws {
 
 use crate::aws::iam::{self, Action, Principal, Resource};
 use crate::aws::s3;
+use crate::aws::Arn;
 use std::rc::Rc;
 
-fn main() {
-    let bucket = s3::BucketBuilder::default()
-        .name("my_bucket")
-        .website(s3::Website {
-            index_document: "index.html".into(),
-        })
-        .build()
-        .unwrap();
-    let bucket = Rc::new(bucket);
+#[derive(Debug)]
+struct MyWebsite {
+    bucket: Rc<s3::Bucket>,
+    index_page: s3::BucketObject,
+    public_can_read: Rc<iam::PolicyDocument>,
+    can_read: s3::BucketPolicy,
+}
 
-    let index_html = s3::BucketObject::new(
-        bucket.clone(),
-        "index.html".into(),
-        "text/html".into(),
-        "hi this is the content!".into(),
-    );
+struct MyWebsiteInput(String);
 
-    let public_can_read = iam::PolicyDocument {
-        statements: vec![iam::PolicyStatementBuilder::default()
-            .allow()
-            .principal(Principal::AWS("*".into()))
-            .action(Action::new("s3:GetObject"))
-            .resource(Resource::new(bucket.arn().to_string()))
-            .resource(Resource::new(format!("{}/*", bucket.arn().to_string())))
+struct MyWebsiteOutput {
+    pub arn: Arn<s3::Bucket>,
+}
+
+impl Module for MyWebsite {
+    type Inputs = MyWebsiteInput;
+    type Outputs = MyWebsiteOutput;
+
+    fn new(input: Self::Inputs) -> Self {
+        let bucket = s3::BucketBuilder::default()
+            .name(input.0)
+            .website(s3::Website {
+                index_document: "index.html".into(),
+            })
             .build()
-            .unwrap()],
-    };
+            .unwrap();
+        let bucket = Rc::new(bucket);
 
-    let can_read = s3::BucketPolicy {
-        bucket: bucket.clone(),
-        policy: public_can_read,
-    };
+        let index_page = s3::BucketObject::new(
+            bucket.clone(),
+            "index.html".into(),
+            "text/html".into(),
+            "hi this is the content!".into(),
+        );
 
-    dbg!(&bucket);
-    dbg!(&index_html);
-    dbg!(&can_read);
+        let public_can_read = Rc::new(iam::PolicyDocument {
+            statements: vec![iam::PolicyStatementBuilder::default()
+                .allow()
+                .principal(Principal::AWS("*".into()))
+                .action(Action::new("s3:GetObject"))
+                .resource(Resource::new(bucket.arn().to_string()))
+                .resource(Resource::new(format!("{}/*", bucket.arn().to_string())))
+                .build()
+                .unwrap()],
+        });
+
+        let can_read = s3::BucketPolicy {
+            bucket: bucket.clone(),
+            policy: public_can_read.clone(),
+        };
+
+        Self {
+            bucket,
+            index_page,
+            public_can_read,
+            can_read,
+        }
+    }
+
+    fn outputs(&self) -> Self::Outputs {
+        MyWebsiteOutput {
+            arn: self.bucket.arn(),
+        }
+    }
+}
+
+trait Module: std::fmt::Debug {
+    type Inputs; // Do we need this?
+    type Outputs;
+
+    fn new(input: Self::Inputs) -> Self;
+
+    fn outputs(&self) -> Self::Outputs; // not sure about references here?
+}
+
+fn main() {
+    let module = MyWebsite::new(MyWebsiteInput("my-unique-bucket".into()));
+    dbg!(&module);
+
+    let out = module.outputs();
+    println!("{}", out.arn);
 }
