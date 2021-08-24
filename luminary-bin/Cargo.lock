@@ -3,13 +3,6 @@
 version = 3
 
 [[package]]
-name = "aws"
-version = "0.0.0"
-dependencies = [
- "derive_builder",
-]
-
-[[package]]
 name = "darling"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -91,7 +84,6 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 name = "luminary-bin"
 version = "0.1.0"
 dependencies = [
- "aws",
  "derive_builder",
 ]
 

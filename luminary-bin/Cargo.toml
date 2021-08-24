@@ -1,0 +1,9 @@
+[package]
+edition = "2018"
+name = "luminary-bin"
+version = "0.1.0"
+
+[dependencies]
+derive_builder = "*"
+aws = { path = "../aws" }
+

@@ -1,7 +1,5 @@
-[package]
-edition = "2018"
-name = "luminary"
-version = "0.1.0"
-
-[dependencies]
-derive_builder = "*"
+[workspace]
+members = [
+    "luminary-bin",
+    "aws",
+]
