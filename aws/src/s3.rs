@@ -37,6 +37,12 @@ impl Bucket {
         }
     }
 
+    pub fn with<S: Into<String>>(name: S) -> BucketBuilder {
+        let mut build = BucketBuilder::default();
+        build.name(name);
+        build
+    }
+
     pub fn arn(&self) -> Arn<Bucket> {
         ArnBuilder::default()
             .partition("arn")

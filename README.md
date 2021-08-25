@@ -25,8 +25,10 @@ Code *structure/layout*: I want to figure out multiple-workspaces to emulate how
 
 ## TODO:
 
-* [ ] Empty state
 * [ ] Create a bucket from the definition
+    * [ ] Thread through credentials, probably with a "Provider"
+    * [ ] Implement some kind of trait _for S3 bucket_ so each thing can define CRUD
+* [ ] Empty state
 * [ ] Create state entry from S3
 * [ ] Refresh state
 * [ ] Diff the S3 bucket state vs code definition
