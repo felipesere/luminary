@@ -1,5 +1,5 @@
 [package]
-name = "aws"
+name = "luminary"
 version = "0.0.0"
 edition = "2018"
 
@@ -7,9 +7,4 @@ edition = "2018"
 
 [dependencies]
 async-trait = "^0.1"
-derive_builder = "*"
 dyn-clone = "1.0.4"
-aws-sdk-s3 = { git = "https://github.com/awslabs/aws-sdk-rust", tag = "v0.0.16-alpha", package = "aws-sdk-s3" }
-
-luminary = { path = "../luminary" }
-

@@ -2,6 +2,9 @@ use crate::iam::PolicyDocument;
 use crate::{Arn, ArnBuilder, Tags};
 use std::default::Default;
 use std::rc::Rc;
+use luminary::{Resource, Provider, State, Value};
+use aws_sdk_s3::{Client};
+use async_trait::async_trait;
 
 #[derive(Clone, Debug)]
 pub enum Acl {
@@ -27,6 +30,18 @@ pub struct Bucket {
     pub tags: Tags,
 }
 
+#[async_trait]
+impl Resource for Bucket {
+    async fn create(&self, _provider: &Provider) -> Result<State, String> {
+        let client = Client::from_env();
+        let request = client.create_bucket().set_bucket(Some(self.name.clone()));
+        let response = request.send().await.map_err(|e| e.to_string())?;
+        dbg!(response);
+        Ok(State {})
+    }
+}
+
+
 impl Bucket {
     pub fn new(name: String) -> Bucket {
         Bucket {
@@ -50,6 +65,20 @@ impl Bucket {
             .relative_id(self.name.clone())
             .build()
             .unwrap()
+    }
+
+    // This one is a bit contrived:
+    // We know from `arn` that we can construct the arn just fine...
+    // The only "point" might be that "name" itself could be a `Value<T>`?
+    pub fn arn2(&self) -> Value<Arn<Bucket>> {
+        // Would this be better if it was an RC?
+        // Is there something that lives "long enough" that I could borrow from?
+        let x = self.clone();
+        Value::Reference(Box::new(move || x.arn()))
+    }
+
+    pub fn name(&self) -> Value<String> {
+        Value::Real(self.name.clone())
     }
 }
 

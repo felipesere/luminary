@@ -4,9 +4,7 @@ name = "luminary-bin"
 version = "0.1.0"
 
 [dependencies]
-derive_builder = "*"
 tokio = { version = "1", features = ["full"] }
-async-trait = "^0.1"
-aws-sdk-s3 = { git = "https://github.com/awslabs/aws-sdk-rust", tag = "v0.0.16-alpha", package = "aws-sdk-s3" }
 
 aws = { path = "../aws" }
+luminary = { path = "../luminary" }

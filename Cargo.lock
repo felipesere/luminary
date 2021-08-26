@@ -23,7 +23,11 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 name = "aws"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
+ "aws-sdk-s3",
  "derive_builder",
+ "dyn-clone",
+ "luminary",
 ]
 
 [[package]]
@@ -305,6 +309,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee2626afccd7561a06cf1367e2950c4718ea04565e20fb5029b6c7d8ad09abcf"
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -578,13 +588,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "luminary"
+version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "dyn-clone",
+]
+
+[[package]]
 name = "luminary-bin"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "aws",
- "aws-sdk-s3",
- "derive_builder",
+ "luminary",
  "tokio",
 ]
 
