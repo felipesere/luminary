@@ -1,13 +1,16 @@
 use aws::s3;
 use aws::Arn;
+use aws::Aws;
+use aws::AwsProvider;
 
-use std::rc::Rc;
+use std::sync::Arc;
 
-use luminary::{Module, Provider, Resource};
+use luminary::{Module, Provider, Resource, System};
 
 #[derive(Debug)]
 struct MyWebsite {
-    bucket: Rc<s3::Bucket>,
+    bucket: Arc<s3::Bucket>,
+    object: Arc<s3::BucketObject>,
 }
 
 struct MyWebsiteOutput {
@@ -17,8 +20,9 @@ struct MyWebsiteOutput {
 impl Module for MyWebsite {
     type Inputs = &'static str;
     type Outputs = MyWebsiteOutput;
+    type Cloud = Aws;
 
-    fn new(name: Self::Inputs) -> Self {
+    fn new(system: &mut System<Aws>, name: Self::Inputs) -> Self {
         let bucket = s3::Bucket::with(name)
             .website(s3::Website {
                 index_document: "index.html".into(),
@@ -26,9 +30,17 @@ impl Module for MyWebsite {
             .build()
             .unwrap();
 
-        let bucket = Rc::new(bucket);
+        let bucket = Arc::new(bucket);
 
-        Self { bucket }
+        system.add(Box::new(bucket.clone()));
+
+        let file_object =
+            s3::BucketObject::new(bucket.clone(), "f.json", "json", "{\"key\": true}");
+        let object = Arc::new(file_object);
+
+        system.add(Box::new(object.clone()));
+
+        Self { bucket, object }
     }
 
     fn outputs(&self) -> Self::Outputs {
@@ -40,13 +52,14 @@ impl Module for MyWebsite {
 
 #[tokio::main]
 pub async fn main() -> Result<(), String> {
-    let module = MyWebsite::new("my-unique-bucket");
-    dbg!(&module);
+    let mut system = System::new();
 
-    let provider = Provider {};
+    let module = MyWebsite::new(&mut system, "luminary-rs-unique-v1");
 
-    let bucket_to_be_build = module.bucket;
-    bucket_to_be_build.create(&provider).await?;
+    let provider =
+        Box::new(AwsProvider::from_env().map_err(|e| format!("Missing env key: {}", e))?);
+
+    system.create_with(provider).await?;
 
     Ok(())
 }

@@ -1,10 +1,13 @@
 use crate::iam::PolicyDocument;
-use crate::{Arn, ArnBuilder, Tags};
+use crate::{Arn, ArnBuilder, Aws, Tags};
+use async_trait::async_trait;
+use aws_sdk_s3::{ByteStream, Client};
+
+use luminary::{Provider, Resource, State, Value};
+
 use std::default::Default;
 use std::rc::Rc;
-use luminary::{Resource, Provider, State, Value};
-use aws_sdk_s3::{Client};
-use async_trait::async_trait;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum Acl {
@@ -31,16 +34,17 @@ pub struct Bucket {
 }
 
 #[async_trait]
-impl Resource for Bucket {
-    async fn create(&self, _provider: &Provider) -> Result<State, String> {
-        let client = Client::from_env();
-        let request = client.create_bucket().set_bucket(Some(self.name.clone()));
+impl Resource<Aws> for Bucket {
+    async fn create(&self, provider: &Box<dyn Provider<Aws>>) -> Result<State, String> {
+        let config = provider.get();
+        let client = Client::from_conf(config);
+
+        let request = client.create_bucket().bucket(self.name.clone());
         let response = request.send().await.map_err(|e| e.to_string())?;
         dbg!(response);
         Ok(State {})
     }
 }
-
 
 impl Bucket {
     pub fn new(name: String) -> Bucket {
@@ -89,20 +93,45 @@ pub struct Website {
 
 #[derive(Debug)]
 pub struct BucketObject {
-    bucket: Rc<Bucket>, // TODO: something about id?
+    bucket: Arc<Bucket>, // TODO: something about id?
     key: String,
     content_type: String,
     content: String,
 }
 
 impl BucketObject {
-    pub fn new(bucket: Rc<Bucket>, key: String, content_type: String, content: String) -> Self {
+    pub fn new(
+        bucket: Arc<Bucket>,
+        key: impl Into<String>,
+        content_type: impl Into<String>,
+        content: impl Into<String>,
+    ) -> Self {
         BucketObject {
             bucket,
-            key,
-            content_type,
-            content,
+            key: key.into(),
+            content_type: content_type.into(),
+            content: content.into(),
         }
+    }
+}
+
+#[async_trait]
+impl Resource<Aws> for BucketObject {
+    async fn create(&self, provider: &Box<dyn Provider<Aws>>) -> Result<State, String> {
+        let config = provider.get();
+        let client = Client::from_conf(config);
+
+        let request = client
+            .put_object()
+            .bucket(&self.bucket.name)
+            .key(&self.key)
+            .content_type(&self.content_type)
+            .body(ByteStream::from(self.content.clone().into_bytes()));
+        let response = request.send().await.map_err(|e| e.to_string())?;
+
+        dbg!(response);
+
+        Ok(State {})
     }
 }
 

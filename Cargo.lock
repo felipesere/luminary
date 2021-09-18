@@ -26,6 +26,7 @@ dependencies = [
  "async-trait",
  "aws-sdk-s3",
  "derive_builder",
+ "dotenv",
  "dyn-clone",
  "luminary",
 ]
@@ -307,6 +308,12 @@ dependencies = [
  "derive_builder_core",
  "syn",
 ]
+
+[[package]]
+name = "dotenv"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
 name = "dyn-clone"
