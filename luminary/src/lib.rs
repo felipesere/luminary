@@ -31,12 +31,11 @@ impl<C> System<C> {
 }
 
 // TODO: move this somewhere better once its more flesshed out
-pub trait Module: std::fmt::Debug {
+pub trait Module<C: Cloud>: std::fmt::Debug {
     type Inputs;
     type Outputs;
-    type Cloud: Cloud;
 
-    fn new(sys: &mut System<Self::Cloud>, input: Self::Inputs) -> Self;
+    fn new(sys: &mut System<C>, input: Self::Inputs) -> Self;
 
     fn outputs(&self) -> Self::Outputs;
 }

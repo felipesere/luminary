@@ -17,10 +17,9 @@ struct MyWebsiteOutput {
     pub arn: Arn<s3::Bucket>,
 }
 
-impl Module for MyWebsite {
+impl Module<Aws> for MyWebsite {
     type Inputs = &'static str;
     type Outputs = MyWebsiteOutput;
-    type Cloud = Aws;
 
     fn new(system: &mut System<Aws>, name: Self::Inputs) -> Self {
         let bucket = s3::Bucket::with(name)
@@ -54,10 +53,11 @@ impl Module for MyWebsite {
 pub async fn main() -> Result<(), String> {
     let mut system = System::new();
 
-    let module = MyWebsite::new(&mut system, "luminary-rs-unique-v1");
-
     let provider =
         Box::new(AwsProvider::from_env().map_err(|e| format!("Missing env key: {}", e))?);
+
+    let module = MyWebsite::new(&mut system, "luminary-rs-unique-v1");
+
 
     system.create_with(provider).await?;
 
