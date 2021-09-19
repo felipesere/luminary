@@ -26,7 +26,7 @@ impl Module<Aws> for MyWebsite {
     // Somehow here I need to be able to attach the provider to the resource... Maybe `AwsProvider`
     // is the thing that I call `AwsProvider.s3().new() on?
     fn new(provider: &mut AwsProvider, name: Self::Inputs) -> (Self, DesiredState) {
-        let bucket = s3::Bucket::with(name)
+        let bucket = provider.s3_bucket(name)
             .website(s3::Website {
                 index_document: "index.html".into(),
             })
@@ -35,10 +35,16 @@ impl Module<Aws> for MyWebsite {
 
         let bucket = Arc::new(bucket);
 
+        // Will be replaced soon!
         provider.track(Box::new(Arc::clone(&bucket)));
 
-        let file_object =
-            s3::BucketObject::new(bucket.clone(), "f.json", "json", "{\"key\": true}");
+        let file_object = provider.s3_bucket_object()
+            .bucket(bucket.clone())
+            .key("f.json")
+            .content_type("application/json")
+            .content("{\"key\": true}")
+            .build()
+            .unwrap();
         let object = Arc::new(file_object);
 
         provider.track(Box::new(Arc::clone(&object)));

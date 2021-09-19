@@ -53,6 +53,14 @@ impl AwsProvider {
             .build()
     }
 
+    pub fn s3_bucket(&mut self, name: impl Into<String>) -> s3::BucketBuilder {
+        s3::Bucket::with(name)
+    }
+
+    pub fn s3_bucket_object(&mut self) -> s3::BucketObjectBuilder {
+        s3::BucketObjectBuilder::default()
+    }
+
     pub fn track(&mut self, resource: Box<dyn Resource<Aws>>) {
         self.tracked_resources.push(resource)
     }

@@ -91,28 +91,13 @@ pub struct Website {
     pub index_document: String,
 }
 
-#[derive(Debug)]
+#[derive(Builder, Clone, Debug)]
+#[builder(setter(strip_option, into))]
 pub struct BucketObject {
     bucket: Arc<Bucket>, // TODO: something about id?
     key: String,
     content_type: String,
     content: String,
-}
-
-impl BucketObject {
-    pub fn new(
-        bucket: Arc<Bucket>,
-        key: impl Into<String>,
-        content_type: impl Into<String>,
-        content: impl Into<String>,
-    ) -> Self {
-        BucketObject {
-            bucket,
-            key: key.into(),
-            content_type: content_type.into(),
-            content: content.into(),
-        }
-    }
 }
 
 #[async_trait]
