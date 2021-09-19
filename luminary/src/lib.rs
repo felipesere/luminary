@@ -7,38 +7,19 @@ mod value;
 pub use value::Value;
 
 // Will likely need some internal mutability
-pub struct System<C> {
-    resources: Vec<Box<dyn Resource<C>>>,
+pub struct System {
 }
 
-// TODO: This whole notion of "system" will need to change
-impl<C: Cloud> System<C> {
-    pub fn new() -> Self {
-        System {
-            resources: Vec::new(),
-        }
-    }
-
-    pub fn add(&mut self, resource: Box<dyn Resource<C>>) {
-        self.resources.push(resource);
-    }
-
-    pub async fn create(&mut self, provider: impl Provider<C>) {}
-
-    pub async fn create_with(&mut self, provider: Box<dyn Provider<C>>) -> Result<(), String> {
-        for resource in &self.resources {
-            // TODO resource.create(&provider).await?;
-        }
-        Ok(())
-    }
-}
-
-pub trait Module<C: Cloud>: std::fmt::Debug {
+pub trait Module<C: Cloud>: std::fmt::Debug
+    where
+        Self: Sized {
     type Inputs;
     type Outputs;
     type Providers;
 
-    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> Self;
+    // TODO: Not sure about DesiredState here... it might move into some kind of Trait
+    // that extracts connections?
+    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> (Self, DesiredState);
 
     fn outputs(&self) -> Self::Outputs;
 }
@@ -82,6 +63,14 @@ pub struct KnownState {}
 /// If an `apply` operation is successful the `DesiredState` should become the `KnownState`
 /// and match up with `RealState`
 pub struct DesiredState {}
+
+impl DesiredState {
+    /// Combines both states to be tracked together
+    pub fn merge(self, _other: DesiredState) -> Self {
+        // TODO
+        self
+    }
+}
 
 pub trait Produce<T>: DynClone {
     fn get(&self) -> T;

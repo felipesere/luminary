@@ -3,7 +3,7 @@ use crate::{Arn, ArnBuilder, Aws, AwsProvider, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{Provider, RealState, Resource, Value};
+use luminary::{RealState, Resource, Value};
 
 use std::default::Default;
 use std::rc::Rc;

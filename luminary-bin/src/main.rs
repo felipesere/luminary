@@ -2,7 +2,7 @@ use aws::s3;
 use aws::Arn;
 use aws::Aws;
 use aws::AwsProvider;
-use luminary::System;
+use luminary::DesiredState;
 
 use std::sync::Arc;
 
@@ -25,7 +25,7 @@ impl Module<Aws> for MyWebsite {
 
     // Somehow here I need to be able to attach the provider to the resource... Maybe `AwsProvider`
     // is the thing that I call `AwsProvider.s3().new() on?
-    fn new(provider: &mut AwsProvider, name: Self::Inputs) -> Self {
+    fn new(provider: &mut AwsProvider, name: Self::Inputs) -> (Self, DesiredState) {
         let bucket = s3::Bucket::with(name)
             .website(s3::Website {
                 index_document: "index.html".into(),
@@ -43,7 +43,9 @@ impl Module<Aws> for MyWebsite {
 
         provider.track(Box::new(Arc::clone(&object)));
 
-        Self { bucket, object }
+        // Maybe the right signature is `(Outputs, DesiredState)` and the object itslef moves into
+        // DesiredState???
+        (Self { bucket, object }, DesiredState{})
     }
 
     fn outputs(&self) -> Self::Outputs {
@@ -71,14 +73,14 @@ impl Module<Aws> for ThreeWebsites {
     );
     type Providers = AwsProvider;
 
-    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> Self {
-        let first = MyWebsite::new(providers, input.0);
-        let second = MyWebsite::new(providers, input.1);
-        let third = MyWebsite::new(providers, input.2);
+    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> (Self, DesiredState) {
+        let (first, s1) = MyWebsite::new(providers, input.0);
+        let (second, s2) = MyWebsite::new(providers, input.1);
+        let (third, s3) = MyWebsite::new(providers, input.2);
 
-        ThreeWebsites {
+        (ThreeWebsites {
             sites: (first, second, third),
-        }
+        }, s1.merge(s2).merge(s3))
     }
 
     fn outputs(&self) -> Self::Outputs {
@@ -96,7 +98,7 @@ pub async fn main() -> Result<(), String> {
 
     // let module = MyWebsite::new(&mut provider, "luminary-rs-unique-v1");
     //
-    let module = ThreeWebsites::new(
+    let _module = ThreeWebsites::new(
         &mut provider,
         ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"),
     );
