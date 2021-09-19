@@ -20,7 +20,6 @@ pub struct AwsProvider {
 pub enum Aws {}
 
 impl Cloud for Aws {
-    type SomethingFromTheProvider = Config;
     type Provider = AwsProvider;
 }
 

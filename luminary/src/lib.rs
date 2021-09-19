@@ -64,12 +64,10 @@ where
 }
 
 pub trait Cloud: Send + Sync {
-    type SomethingFromTheProvider;
     type Provider: Send + Sync;
 }
 
 pub trait Provider<C: Cloud>: Send + Sync {
-    fn get(&self) -> <C as Cloud>::SomethingFromTheProvider;
 }
 
 // This will somehow be used to store and refresh state?
