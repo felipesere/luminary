@@ -11,7 +11,8 @@ pub struct System<C> {
     resources: Vec<Box<dyn Resource<C>>>,
 }
 
-impl<C> System<C> {
+// TODO: This whole notion of "system" will need to change
+impl<C: Cloud> System<C> {
     pub fn new() -> Self {
         System {
             resources: Vec::new(),
@@ -22,9 +23,11 @@ impl<C> System<C> {
         self.resources.push(resource);
     }
 
+    pub async fn create(&mut self, provider: impl Provider<C>) {}
+
     pub async fn create_with(&mut self, provider: Box<dyn Provider<C>>) -> Result<(), String> {
         for resource in &self.resources {
-            resource.create(&provider).await?;
+            // TODO resource.create(&provider).await?;
         }
         Ok(())
     }
@@ -34,29 +37,35 @@ impl<C> System<C> {
 pub trait Module<C: Cloud>: std::fmt::Debug {
     type Inputs;
     type Outputs;
+    type Providers;
 
-    fn new(sys: &mut System<C>, input: Self::Inputs) -> Self;
+    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> Self;
 
     fn outputs(&self) -> Self::Outputs;
 }
 
 #[async_trait]
-pub trait Resource<C>: std::fmt::Debug {
-    async fn create(&self, provider: &Box<dyn Provider<C>>) -> Result<State, String>; // Come up with a better error story
+pub trait Resource<C>: std::fmt::Debug + Send + Sync
+where
+    C: Cloud,
+{
+    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<State, String>; // Come up with a better error story
 }
 
 #[async_trait]
 impl<T, C> Resource<C> for std::sync::Arc<T>
 where
+    C: Cloud,
     T: Resource<C> + Send + Sync,
 {
-    async fn create(&self, provider: &Box<dyn Provider<C>>) -> Result<State, String> {
+    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<State, String> {
         self.as_ref().create(provider).await
     }
 }
 
 pub trait Cloud: Send + Sync {
     type SomethingFromTheProvider;
+    type Provider: Send + Sync;
 }
 
 pub trait Provider<C: Cloud>: Send + Sync {

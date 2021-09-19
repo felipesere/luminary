@@ -2,10 +2,11 @@ use aws::s3;
 use aws::Arn;
 use aws::Aws;
 use aws::AwsProvider;
+use luminary::System;
 
 use std::sync::Arc;
 
-use luminary::{Module, Provider, Resource, System};
+use luminary::Module;
 
 #[derive(Debug)]
 struct MyWebsite {
@@ -20,8 +21,11 @@ struct MyWebsiteOutput {
 impl Module<Aws> for MyWebsite {
     type Inputs = &'static str;
     type Outputs = MyWebsiteOutput;
+    type Providers = AwsProvider;
 
-    fn new(system: &mut System<Aws>, name: Self::Inputs) -> Self {
+    // Somehow here I need to be able to attach the provider to the resource... Maybe `AwsProvider`
+    // is the thing that I call `AwsProvider.s3().new() on?
+    fn new(provider: &mut AwsProvider, name: Self::Inputs) -> Self {
         let bucket = s3::Bucket::with(name)
             .website(s3::Website {
                 index_document: "index.html".into(),
@@ -31,13 +35,13 @@ impl Module<Aws> for MyWebsite {
 
         let bucket = Arc::new(bucket);
 
-        system.add(Box::new(bucket.clone()));
+        provider.track(Box::new(Arc::clone(&bucket)));
 
         let file_object =
             s3::BucketObject::new(bucket.clone(), "f.json", "json", "{\"key\": true}");
         let object = Arc::new(file_object);
 
-        system.add(Box::new(object.clone()));
+        provider.track(Box::new(Arc::clone(&object)));
 
         Self { bucket, object }
     }
@@ -51,15 +55,15 @@ impl Module<Aws> for MyWebsite {
 
 #[tokio::main]
 pub async fn main() -> Result<(), String> {
-    let mut system = System::new();
+    let mut provider = AwsProvider::from_env().map_err(|e| format!("Missing env key: {}", e))?;
 
-    let provider =
-        Box::new(AwsProvider::from_env().map_err(|e| format!("Missing env key: {}", e))?);
+    let module = MyWebsite::new(&mut provider, "luminary-rs-unique-v1");
 
-    let module = MyWebsite::new(&mut system, "luminary-rs-unique-v1");
+    provider.create().await;
 
+    // let mut system = System::new();
 
-    system.create_with(provider).await?;
+    // system.create(provider).await;
 
     Ok(())
 }

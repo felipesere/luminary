@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate derive_builder;
 
-use luminary::{Cloud, Provider};
+use luminary::{Cloud, Provider, Resource};
 use std::collections::HashMap;
 use std::env::VarError;
 use std::fmt;
@@ -14,12 +14,14 @@ pub mod s3;
 pub struct AwsProvider {
     creds: Credentials,
     region: String,
+    tracked_resources: Vec<Box<dyn Resource<Aws>>>,
 }
 
 pub enum Aws {}
 
 impl Cloud for Aws {
     type SomethingFromTheProvider = Config;
+    type Provider = AwsProvider;
 }
 
 impl AwsProvider {
@@ -30,6 +32,7 @@ impl AwsProvider {
         AwsProvider {
             creds: Credentials::from_keys(access_key_id, secret_access_key, None),
             region: "us-east-1".into(), // TODO: pass in
+            tracked_resources: Vec::new(),
         }
     }
 
@@ -42,13 +45,25 @@ impl AwsProvider {
     }
 }
 
-impl Provider<Aws> for AwsProvider {
-    fn get(&self) -> Config {
+impl AwsProvider {
+    fn config(&self) -> Config {
         let region = aws_sdk_s3::Region::new(self.region.clone());
         aws_sdk_s3::Config::builder()
             .region(region)
             .credentials_provider(self.creds.clone())
             .build()
+    }
+
+    pub fn track(&mut self, resource: Box<dyn Resource<Aws>>) {
+        self.tracked_resources.push(resource)
+    }
+
+    pub async fn create(&mut self) -> Result<(), String> {
+        for resource in &self.tracked_resources {
+            resource.create(self).await?;
+        }
+
+        Ok(())
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::iam::PolicyDocument;
-use crate::{Arn, ArnBuilder, Aws, Tags};
+use crate::{Arn, ArnBuilder, Aws, AwsProvider, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
@@ -35,8 +35,8 @@ pub struct Bucket {
 
 #[async_trait]
 impl Resource<Aws> for Bucket {
-    async fn create(&self, provider: &Box<dyn Provider<Aws>>) -> Result<State, String> {
-        let config = provider.get();
+    async fn create(&self, provider: &AwsProvider) -> Result<State, String> {
+        let config = provider.config();
         let client = Client::from_conf(config);
 
         let request = client.create_bucket().bucket(self.name.clone());
@@ -117,8 +117,8 @@ impl BucketObject {
 
 #[async_trait]
 impl Resource<Aws> for BucketObject {
-    async fn create(&self, provider: &Box<dyn Provider<Aws>>) -> Result<State, String> {
-        let config = provider.get();
+    async fn create(&self, provider: &AwsProvider) -> Result<State, String> {
+        let config = provider.config();
         let client = Client::from_conf(config);
 
         let request = client
