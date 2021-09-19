@@ -62,13 +62,13 @@ impl Module<Aws> for ThreeWebsites {
     type Inputs = (
         <MyWebsite as Module<Aws>>::Inputs,
         <MyWebsite as Module<Aws>>::Inputs,
-        <MyWebsite as Module<Aws>>::Inputs
-        );
+        <MyWebsite as Module<Aws>>::Inputs,
+    );
     type Outputs = (
         <MyWebsite as Module<Aws>>::Outputs,
         <MyWebsite as Module<Aws>>::Outputs,
-        <MyWebsite as Module<Aws>>::Outputs
-        );
+        <MyWebsite as Module<Aws>>::Outputs,
+    );
     type Providers = AwsProvider;
 
     fn new(providers: &mut Self::Providers, input: Self::Inputs) -> Self {
@@ -76,7 +76,9 @@ impl Module<Aws> for ThreeWebsites {
         let second = MyWebsite::new(providers, input.1);
         let third = MyWebsite::new(providers, input.2);
 
-        ThreeWebsites { sites: (first, second, third) }
+        ThreeWebsites {
+            sites: (first, second, third),
+        }
     }
 
     fn outputs(&self) -> Self::Outputs {
@@ -94,7 +96,10 @@ pub async fn main() -> Result<(), String> {
 
     // let module = MyWebsite::new(&mut provider, "luminary-rs-unique-v1");
     //
-    let module = ThreeWebsites::new(&mut provider, ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"));
+    let module = ThreeWebsites::new(
+        &mut provider,
+        ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"),
+    );
 
     provider.create().await?;
 

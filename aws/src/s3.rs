@@ -3,7 +3,7 @@ use crate::{Arn, ArnBuilder, Aws, AwsProvider, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{Provider, Resource, State, Value};
+use luminary::{Provider, RealState, Resource, Value};
 
 use std::default::Default;
 use std::rc::Rc;
@@ -35,14 +35,14 @@ pub struct Bucket {
 
 #[async_trait]
 impl Resource<Aws> for Bucket {
-    async fn create(&self, provider: &AwsProvider) -> Result<State, String> {
+    async fn create(&self, provider: &AwsProvider) -> Result<RealState, String> {
         let config = provider.config();
         let client = Client::from_conf(config);
 
         let request = client.create_bucket().bucket(self.name.clone());
         let response = request.send().await.map_err(|e| e.to_string())?;
         dbg!(response);
-        Ok(State {})
+        Ok(RealState {})
     }
 }
 
@@ -117,7 +117,7 @@ impl BucketObject {
 
 #[async_trait]
 impl Resource<Aws> for BucketObject {
-    async fn create(&self, provider: &AwsProvider) -> Result<State, String> {
+    async fn create(&self, provider: &AwsProvider) -> Result<RealState, String> {
         let config = provider.config();
         let client = Client::from_conf(config);
 
@@ -131,7 +131,7 @@ impl Resource<Aws> for BucketObject {
 
         dbg!(response);
 
-        Ok(State {})
+        Ok(RealState {})
     }
 }
 

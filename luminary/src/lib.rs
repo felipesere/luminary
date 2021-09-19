@@ -33,7 +33,6 @@ impl<C: Cloud> System<C> {
     }
 }
 
-// TODO: move this somewhere better once its more flesshed out
 pub trait Module<C: Cloud>: std::fmt::Debug {
     type Inputs;
     type Outputs;
@@ -45,11 +44,8 @@ pub trait Module<C: Cloud>: std::fmt::Debug {
 }
 
 #[async_trait]
-pub trait Resource<C>: std::fmt::Debug + Send + Sync
-where
-    C: Cloud,
-{
-    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<State, String>; // Come up with a better error story
+pub trait Resource<C: Cloud>: std::fmt::Debug + Send + Sync {
+    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<RealState, String>; // Come up with a better error story
 }
 
 #[async_trait]
@@ -58,7 +54,7 @@ where
     C: Cloud,
     T: Resource<C> + Send + Sync,
 {
-    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<State, String> {
+    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<RealState, String> {
         self.as_ref().create(provider).await
     }
 }
@@ -67,11 +63,25 @@ pub trait Cloud: Send + Sync {
     type Provider: Send + Sync;
 }
 
-pub trait Provider<C: Cloud>: Send + Sync {
-}
+pub trait Provider<C: Cloud>: Send + Sync {}
 
-// This will somehow be used to store and refresh state?
-pub struct State {}
+/// The state as it is known to our Cloud providers
+/// We get this from refreshing the resources that
+/// we see in `KnownState`.
+pub struct RealState {}
+
+/// The state as it was reloaded from storage and is known to luminary.
+/// It may not be what is desired or even real, but it represents
+/// what we knew last time we ran.
+/// It will contain references to providers, resources, and attributes.
+pub struct KnownState {}
+
+/// The state as the operator would like to have it.
+/// It is a more portable, generirc representation of what we have designed with Rust as code.
+/// It will contain references to providers, resources, and attributes.
+/// If an `apply` operation is successful the `DesiredState` should become the `KnownState`
+/// and match up with `RealState`
+pub struct DesiredState {}
 
 pub trait Produce<T>: DynClone {
     fn get(&self) -> T;
