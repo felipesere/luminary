@@ -26,7 +26,8 @@ impl Module<Aws> for MyWebsite {
     // Somehow here I need to be able to attach the provider to the resource... Maybe `AwsProvider`
     // is the thing that I call `AwsProvider.s3().new() on?
     fn new(provider: &mut AwsProvider, name: Self::Inputs) -> (Self, DesiredState) {
-        let bucket = provider.s3_bucket(name)
+        let bucket = provider
+            .s3_bucket(name)
             .website(s3::Website {
                 index_document: "index.html".into(),
             })
@@ -35,10 +36,8 @@ impl Module<Aws> for MyWebsite {
 
         let bucket = Arc::new(bucket);
 
-        // Will be replaced soon!
-        provider.track(Box::new(Arc::clone(&bucket)));
-
-        let file_object = provider.s3_bucket_object()
+        let file_object = provider
+            .s3_bucket_object()
             .bucket(bucket.clone())
             .key("f.json")
             .content_type("application/json")
@@ -51,7 +50,7 @@ impl Module<Aws> for MyWebsite {
 
         // Maybe the right signature is `(Outputs, DesiredState)` and the object itslef moves into
         // DesiredState???
-        (Self { bucket, object }, DesiredState{})
+        (Self { bucket, object }, DesiredState {})
     }
 
     fn outputs(&self) -> Self::Outputs {
@@ -84,9 +83,12 @@ impl Module<Aws> for ThreeWebsites {
         let (second, s2) = MyWebsite::new(providers, input.1);
         let (third, s3) = MyWebsite::new(providers, input.2);
 
-        (ThreeWebsites {
-            sites: (first, second, third),
-        }, s1.merge(s2).merge(s3))
+        (
+            ThreeWebsites {
+                sites: (first, second, third),
+            },
+            s1.merge(s2).merge(s3),
+        )
     }
 
     fn outputs(&self) -> Self::Outputs {

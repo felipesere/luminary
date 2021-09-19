@@ -21,16 +21,53 @@ impl Default for Acl {
     }
 }
 
-#[derive(Builder, Clone, Debug)]
-#[builder(setter(strip_option, into))]
+#[derive(Clone, Debug)]
 pub struct Bucket {
     pub name: String,
-    #[builder(default)]
     pub acl: Acl,
-    #[builder(default)]
     pub website: Option<Website>,
-    #[builder(default)]
     pub tags: Tags,
+}
+
+pub struct BucketBuilder {
+    provider: AwsProvider,
+    name: String,
+    acl: Acl,
+    website: Option<Website>,
+    tags: Tags,
+}
+
+impl BucketBuilder {
+    pub fn new(provider: AwsProvider, name: impl Into<String>) -> Self {
+        BucketBuilder {
+            provider,
+            name: name.into(),
+            acl: Acl::default(),
+            website: None,
+            tags: Tags::empty(),
+        }
+    }
+
+    pub fn website(mut self, website: Website) -> Self {
+        self.website = Some(website);
+        self
+    }
+
+    pub fn build(mut self) -> Option<Bucket> {
+        let bucket = Bucket {
+            name: self.name,
+            acl: self.acl,
+            website: self.website,
+            tags: self.tags,
+        };
+
+        // TODO: this is groggy!
+        // I think this is where I would hand of the resource to the provider,
+        // and return something that can be queried of the provider? Read-only Handler<T>
+        self.provider.track(Box::new(bucket.clone()));
+
+        Some(bucket)
+    }
 }
 
 #[async_trait]
@@ -47,21 +84,6 @@ impl Resource<Aws> for Bucket {
 }
 
 impl Bucket {
-    pub fn new(name: String) -> Bucket {
-        Bucket {
-            name,
-            acl: Acl::default(),
-            website: None,
-            tags: Tags::empty(),
-        }
-    }
-
-    pub fn with<S: Into<String>>(name: S) -> BucketBuilder {
-        let mut build = BucketBuilder::default();
-        build.name(name);
-        build
-    }
-
     pub fn arn(&self) -> Arn<Bucket> {
         ArnBuilder::default()
             .partition("arn")

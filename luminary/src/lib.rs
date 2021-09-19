@@ -7,12 +7,12 @@ mod value;
 pub use value::Value;
 
 // Will likely need some internal mutability
-pub struct System {
-}
+pub struct System {}
 
 pub trait Module<C: Cloud>: std::fmt::Debug
-    where
-        Self: Sized {
+where
+    Self: Sized,
+{
     type Inputs;
     type Outputs;
     type Providers;

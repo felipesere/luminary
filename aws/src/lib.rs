@@ -5,16 +5,25 @@ use luminary::{Cloud, Resource};
 use std::collections::HashMap;
 use std::env::VarError;
 use std::fmt;
+use std::sync::{Arc, RwLock};
 
 use aws_sdk_s3::{Config, Credentials};
 
 pub mod iam;
 pub mod s3;
 
-pub struct AwsProvider {
+struct Inner {
     creds: Credentials,
     region: String,
-    tracked_resources: Vec<Box<dyn Resource<Aws>>>,
+    tracked_resources: RwLock<Vec<Box<dyn Resource<Aws>>>>,
+}
+
+pub struct AwsProvider(Arc<Inner>);
+
+impl Clone for AwsProvider {
+    fn clone(&self) -> Self {
+        AwsProvider(Arc::clone(&self.0))
+    }
 }
 
 pub enum Aws {}
@@ -28,11 +37,19 @@ impl AwsProvider {
         access_key_id: impl Into<String>,
         secret_access_key: impl Into<String>,
     ) -> Self {
-        AwsProvider {
+        AwsProvider(Arc::new(Inner {
             creds: Credentials::from_keys(access_key_id, secret_access_key, None),
             region: "us-east-1".into(), // TODO: pass in
-            tracked_resources: Vec::new(),
-        }
+            tracked_resources: RwLock::default(),
+        }))
+    }
+
+    pub fn creds(&self) -> Credentials {
+        self.0.creds.clone()
+    }
+
+    pub fn region(&self) -> String {
+        self.0.region.clone()
     }
 
     pub fn from_env() -> Result<Self, VarError> {
@@ -46,15 +63,16 @@ impl AwsProvider {
 
 impl AwsProvider {
     fn config(&self) -> Config {
-        let region = aws_sdk_s3::Region::new(self.region.clone());
+        let region = aws_sdk_s3::Region::new(self.region());
         aws_sdk_s3::Config::builder()
             .region(region)
-            .credentials_provider(self.creds.clone())
+            .credentials_provider(self.creds())
             .build()
     }
 
-    pub fn s3_bucket(&mut self, name: impl Into<String>) -> s3::BucketBuilder {
-        s3::Bucket::with(name)
+    pub fn s3_bucket(&self, name: impl Into<String>) -> s3::BucketBuilder {
+        let fresh_copy = self.clone();
+        s3::BucketBuilder::new(fresh_copy, name)
     }
 
     pub fn s3_bucket_object(&mut self) -> s3::BucketObjectBuilder {
@@ -62,11 +80,13 @@ impl AwsProvider {
     }
 
     pub fn track(&mut self, resource: Box<dyn Resource<Aws>>) {
-        self.tracked_resources.push(resource)
+        // Huge TODO here!!!
+        self.0.tracked_resources.write().unwrap().push(resource)
     }
 
     pub async fn create(&mut self) -> Result<(), String> {
-        for resource in &self.tracked_resources {
+        let resources = self.0.tracked_resources.read().unwrap();
+        for resource in resources.iter() {
             resource.create(self).await?;
         }
 
