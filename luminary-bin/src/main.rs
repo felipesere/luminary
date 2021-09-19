@@ -53,13 +53,50 @@ impl Module<Aws> for MyWebsite {
     }
 }
 
+#[derive(Debug)]
+struct ThreeWebsites {
+    sites: (MyWebsite, MyWebsite, MyWebsite),
+}
+
+impl Module<Aws> for ThreeWebsites {
+    type Inputs = (
+        <MyWebsite as Module<Aws>>::Inputs,
+        <MyWebsite as Module<Aws>>::Inputs,
+        <MyWebsite as Module<Aws>>::Inputs
+        );
+    type Outputs = (
+        <MyWebsite as Module<Aws>>::Outputs,
+        <MyWebsite as Module<Aws>>::Outputs,
+        <MyWebsite as Module<Aws>>::Outputs
+        );
+    type Providers = AwsProvider;
+
+    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> Self {
+        let first = MyWebsite::new(providers, input.0);
+        let second = MyWebsite::new(providers, input.1);
+        let third = MyWebsite::new(providers, input.2);
+
+        ThreeWebsites { sites: (first, second, third) }
+    }
+
+    fn outputs(&self) -> Self::Outputs {
+        (
+            self.sites.0.outputs(),
+            self.sites.1.outputs(),
+            self.sites.2.outputs(),
+        )
+    }
+}
+
 #[tokio::main]
 pub async fn main() -> Result<(), String> {
     let mut provider = AwsProvider::from_env().map_err(|e| format!("Missing env key: {}", e))?;
 
-    let module = MyWebsite::new(&mut provider, "luminary-rs-unique-v1");
+    // let module = MyWebsite::new(&mut provider, "luminary-rs-unique-v1");
+    //
+    let module = ThreeWebsites::new(&mut provider, ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"));
 
-    provider.create().await;
+    provider.create().await?;
 
     // let mut system = System::new();
 
