@@ -15,7 +15,7 @@ pub mod s3;
 struct Inner {
     creds: Credentials,
     region: String,
-    tracked_resources: RwLock<Vec<Box<dyn Resource<Aws>>>>,
+    tracked_resources: RwLock<Vec<Arc<dyn Resource<Aws>>>>,
 }
 
 pub struct AwsProvider(Arc<Inner>);
@@ -76,12 +76,13 @@ impl AwsProvider {
     }
 
     pub fn s3_bucket_object(&mut self) -> s3::BucketObjectBuilder {
-        s3::BucketObjectBuilder::default()
+        let fresh_copy = self.clone();
+        s3::BucketObjectBuilder::new(fresh_copy)
     }
 
-    pub fn track(&mut self, resource: Box<dyn Resource<Aws>>) {
-        // Huge TODO here!!!
-        self.0.tracked_resources.write().unwrap().push(resource)
+    // Can this be done better?
+    pub fn track(&mut self, resource: Arc<dyn Resource<Aws>>) {
+        self.0.tracked_resources.write().unwrap().push(resource);
     }
 
     pub async fn create(&mut self) -> Result<(), String> {

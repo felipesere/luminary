@@ -23,8 +23,6 @@ impl Module<Aws> for MyWebsite {
     type Outputs = MyWebsiteOutput;
     type Providers = AwsProvider;
 
-    // Somehow here I need to be able to attach the provider to the resource... Maybe `AwsProvider`
-    // is the thing that I call `AwsProvider.s3().new() on?
     fn new(provider: &mut AwsProvider, name: Self::Inputs) -> (Self, DesiredState) {
         let bucket = provider
             .s3_bucket(name)
@@ -34,19 +32,14 @@ impl Module<Aws> for MyWebsite {
             .build()
             .unwrap();
 
-        let bucket = Arc::new(bucket);
-
-        let file_object = provider
+        let object = provider
             .s3_bucket_object()
-            .bucket(bucket.clone())
+            .bucket(Arc::clone(&bucket))
             .key("f.json")
             .content_type("application/json")
             .content("{\"key\": true}")
             .build()
             .unwrap();
-        let object = Arc::new(file_object);
-
-        provider.track(Box::new(Arc::clone(&object)));
 
         // Maybe the right signature is `(Outputs, DesiredState)` and the object itslef moves into
         // DesiredState???

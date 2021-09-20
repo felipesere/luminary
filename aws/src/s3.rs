@@ -53,7 +53,7 @@ impl BucketBuilder {
         self
     }
 
-    pub fn build(mut self) -> Option<Bucket> {
+    pub fn build(mut self) -> Option<Arc<Bucket>> {
         let bucket = Bucket {
             name: self.name,
             acl: self.acl,
@@ -61,12 +61,12 @@ impl BucketBuilder {
             tags: self.tags,
         };
 
-        // TODO: this is groggy!
-        // I think this is where I would hand of the resource to the provider,
-        // and return something that can be queried of the provider? Read-only Handler<T>
-        self.provider.track(Box::new(bucket.clone()));
+        let arced_bucket = Arc::new(bucket);
 
-        Some(bucket)
+        self.provider
+            .track(Arc::clone(&arced_bucket) as Arc<dyn Resource<Aws>>);
+
+        Some(arced_bucket)
     }
 }
 
@@ -113,13 +113,68 @@ pub struct Website {
     pub index_document: String,
 }
 
-#[derive(Builder, Clone, Debug)]
-#[builder(setter(strip_option, into))]
+#[derive(Clone, Debug)]
 pub struct BucketObject {
     bucket: Arc<Bucket>, // TODO: something about id?
     key: String,
     content_type: String,
     content: String,
+}
+
+pub struct BucketObjectBuilder {
+    provider: AwsProvider,
+    bucket: Option<Arc<Bucket>>,
+    key: Option<String>,
+    content_type: Option<String>,
+    content: Option<String>,
+}
+
+impl BucketObjectBuilder {
+    pub fn new(provider: AwsProvider) -> Self {
+        BucketObjectBuilder {
+            provider,
+            bucket: None,
+            key: None,
+            content_type: None,
+            content: None,
+        }
+    }
+
+    pub fn bucket(mut self, bucket: Arc<Bucket>) -> Self {
+        self.bucket = Some(bucket);
+        self
+    }
+
+    pub fn key(mut self, key: impl Into<String>) -> Self {
+        self.key = Some(key.into());
+        self
+    }
+
+    pub fn content_type(mut self, content_type: impl Into<String>) -> Self {
+        self.content_type = Some(content_type.into());
+        self
+    }
+
+    pub fn content(mut self, content: impl Into<String>) -> Self {
+        self.content = Some(content.into());
+        self
+    }
+
+    pub fn build(mut self) -> Option<Arc<BucketObject>> {
+        let object = BucketObject {
+            bucket: self.bucket.unwrap(),
+            key: self.key.unwrap(),
+            content_type: self.content_type.unwrap(),
+            content: self.content.unwrap(),
+        };
+
+        let arced_object = Arc::new(object);
+
+        self.provider
+            .track(Arc::clone(&arced_object) as Arc<dyn Resource<Aws>>);
+
+        Some(arced_object)
+    }
 }
 
 #[async_trait]
