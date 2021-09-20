@@ -21,9 +21,7 @@ where
 
     // TODO: Not sure about DesiredState here... it might move into some kind of Trait
     // that extracts connections?
-    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> (Self, DesiredState);
-
-    fn outputs(&self) -> Self::Outputs;
+    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> Self::Outputs;
 }
 
 #[async_trait]

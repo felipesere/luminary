@@ -23,7 +23,7 @@ impl Module<Aws> for MyWebsite {
     type Outputs = MyWebsiteOutput;
     type Providers = AwsProvider;
 
-    fn new(provider: &mut AwsProvider, name: Self::Inputs) -> (Self, DesiredState) {
+    fn new(provider: &mut AwsProvider, name: Self::Inputs) -> MyWebsiteOutput {
         let bucket = provider
             .s3_bucket(name)
             .website(s3::Website {
@@ -41,15 +41,7 @@ impl Module<Aws> for MyWebsite {
             .build()
             .unwrap();
 
-        // Maybe the right signature is `(Outputs, DesiredState)` and the object itslef moves into
-        // DesiredState???
-        (Self { bucket, object }, DesiredState {})
-    }
-
-    fn outputs(&self) -> Self::Outputs {
-        MyWebsiteOutput {
-            arn: self.bucket.arn(),
-        }
+        MyWebsiteOutput { arn: bucket.arn() }
     }
 }
 
@@ -71,25 +63,12 @@ impl Module<Aws> for ThreeWebsites {
     );
     type Providers = AwsProvider;
 
-    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> (Self, DesiredState) {
-        let (first, s1) = MyWebsite::new(providers, input.0);
-        let (second, s2) = MyWebsite::new(providers, input.1);
-        let (third, s3) = MyWebsite::new(providers, input.2);
+    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> Self::Outputs {
+        let first = MyWebsite::new(providers, input.0);
+        let second = MyWebsite::new(providers, input.1);
+        let third = MyWebsite::new(providers, input.2);
 
-        (
-            ThreeWebsites {
-                sites: (first, second, third),
-            },
-            s1.merge(s2).merge(s3),
-        )
-    }
-
-    fn outputs(&self) -> Self::Outputs {
-        (
-            self.sites.0.outputs(),
-            self.sites.1.outputs(),
-            self.sites.2.outputs(),
-        )
+        (first, second, third)
     }
 }
 
