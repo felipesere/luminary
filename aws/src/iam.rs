@@ -58,14 +58,14 @@ impl PolicyStatementBuilder {
 
     pub fn action(&mut self, action: Action) -> &mut Self {
         let new = self;
-        let actions = new.actions.get_or_insert_with(|| Vec::new());
+        let actions = new.actions.get_or_insert_with(Vec::new);
         actions.push(action);
         new
     }
 
     pub fn resource(&mut self, resource: Resource) -> &mut Self {
         let new = self;
-        let resources = new.resources.get_or_insert_with(|| Vec::new());
+        let resources = new.resources.get_or_insert_with(Vec::new);
         resources.push(resource);
         new
     }

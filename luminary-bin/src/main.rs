@@ -2,7 +2,6 @@ use aws::s3;
 use aws::Arn;
 use aws::Aws;
 use aws::AwsProvider;
-use luminary::DesiredState;
 
 use std::sync::Arc;
 
@@ -14,6 +13,8 @@ struct MyWebsite {
     object: Arc<s3::BucketObject>,
 }
 
+// Will be used for something meaningful down the line
+#[allow(dead_code)]
 struct MyWebsiteOutput {
     pub arn: Arn<s3::Bucket>,
 }
@@ -32,7 +33,7 @@ impl Module<Aws> for MyWebsite {
             .build()
             .unwrap();
 
-        let object = provider
+        let _object = provider
             .s3_bucket_object()
             .bucket(Arc::clone(&bucket))
             .key("f.json")
@@ -84,10 +85,6 @@ pub async fn main() -> Result<(), String> {
     );
 
     provider.create().await?;
-
-    // let mut system = System::new();
-
-    // system.create(provider).await;
 
     Ok(())
 }

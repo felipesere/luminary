@@ -46,15 +46,15 @@ impl<T: Clone> Value<T> {
 }
 
 // We'd have more impls for basic things here
-
-impl Into<Value<String>> for String {
-    fn into(self) -> Value<String> {
-        Value::Real(self)
+//
+impl From<String> for Value<String> {
+    fn from(content: String) -> Self {
+        Value::Real(content)
     }
 }
 
-impl Into<Value<&'static str>> for &'static str {
-    fn into(self) -> Value<&'static str> {
-        Value::Real(self)
+impl From<&'static str> for Value<&'static str> {
+    fn from(content: &'static str) -> Self {
+        Value::Real(content)
     }
 }
