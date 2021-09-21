@@ -24,9 +24,9 @@ impl Module<Aws> for MyWebsite {
     type Outputs = MyWebsiteOutput;
     type Providers = AwsProvider;
 
-    fn new(provider: &mut AwsProvider, name: Self::Inputs) -> MyWebsiteOutput {
+    fn new(provider: &mut AwsProvider, bucket_name: Self::Inputs) -> MyWebsiteOutput {
         let bucket = provider
-            .s3_bucket(name)
+            .s3_bucket(bucket_name)
             .website(s3::Website {
                 index_document: "index.html".into(),
             })
@@ -35,6 +35,8 @@ impl Module<Aws> for MyWebsite {
 
         let _object = provider
             .s3_bucket_object()
+            // Just pass down a reference to a bucket, 
+            // .bucket(&bucket)
             .bucket(Arc::clone(&bucket))
             .key("f.json")
             .content_type("application/json")

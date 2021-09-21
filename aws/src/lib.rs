@@ -59,9 +59,7 @@ impl AwsProvider {
 
         Ok(Self::from_keys(access_key_id, secret_access_key))
     }
-}
 
-impl AwsProvider {
     fn config(&self) -> Config {
         let region = aws_sdk_s3::Region::new(self.region());
         aws_sdk_s3::Config::builder()

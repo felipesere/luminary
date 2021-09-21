@@ -9,6 +9,15 @@ pub use value::Value;
 // Will likely need some internal mutability
 pub struct System {}
 
+// The address of an object in Luminary
+pub struct Address(String);
+
+// Sort of part of the addressing system?
+// A module should form "a scope",
+// Any submodule should a fresh scope with
+// a parent scope...
+pub struct Scope {}
+
 pub trait Module<C: Cloud>: std::fmt::Debug
 where
     Self: Sized,
@@ -24,7 +33,7 @@ where
 
 #[async_trait]
 pub trait Resource<C: Cloud>: std::fmt::Debug + Send + Sync {
-    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<RealState, String>; // Come up with a better error story
+    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<RealState, String>;
 }
 
 #[async_trait]
@@ -38,6 +47,9 @@ where
     }
 }
 
+/// A very intersting trait that configures
+/// how a a cloud works. Cloud here could be things
+/// like `Aws`, or `Azure` and `GCP`
 pub trait Cloud: Send + Sync {
     type Provider: Send + Sync;
 }
