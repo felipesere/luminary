@@ -5,7 +5,7 @@ use aws::AwsProvider;
 
 use std::sync::Arc;
 
-use luminary::Module;
+use luminary::ModuleDefinition;
 
 #[derive(Debug)]
 struct MyWebsite {
@@ -19,7 +19,7 @@ struct MyWebsiteOutput {
     pub arn: Arn<s3::Bucket>,
 }
 
-impl Module<Aws> for MyWebsite {
+impl ModuleDefinition<Aws> for MyWebsite {
     type Inputs = &'static str;
     type Outputs = MyWebsiteOutput;
     type Providers = AwsProvider;
@@ -53,16 +53,16 @@ struct ThreeWebsites {
     sites: (MyWebsite, MyWebsite, MyWebsite),
 }
 
-impl Module<Aws> for ThreeWebsites {
+impl ModuleDefinition<Aws> for ThreeWebsites {
     type Inputs = (
-        <MyWebsite as Module<Aws>>::Inputs,
-        <MyWebsite as Module<Aws>>::Inputs,
-        <MyWebsite as Module<Aws>>::Inputs,
+        <MyWebsite as ModuleDefinition<Aws>>::Inputs,
+        <MyWebsite as ModuleDefinition<Aws>>::Inputs,
+        <MyWebsite as ModuleDefinition<Aws>>::Inputs,
     );
     type Outputs = (
-        <MyWebsite as Module<Aws>>::Outputs,
-        <MyWebsite as Module<Aws>>::Outputs,
-        <MyWebsite as Module<Aws>>::Outputs,
+        <MyWebsite as ModuleDefinition<Aws>>::Outputs,
+        <MyWebsite as ModuleDefinition<Aws>>::Outputs,
+        <MyWebsite as ModuleDefinition<Aws>>::Outputs,
     );
     type Providers = AwsProvider;
 

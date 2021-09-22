@@ -18,7 +18,7 @@ pub struct Address(String);
 // a parent scope...
 pub struct Scope {}
 
-pub trait Module<C: Cloud>: std::fmt::Debug
+pub trait ModuleDefinition<C: Cloud>: std::fmt::Debug
 where
     Self: Sized,
 {
