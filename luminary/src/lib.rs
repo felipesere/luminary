@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 
@@ -18,6 +20,18 @@ pub struct Address(String);
 // a parent scope...
 pub struct Scope {}
 
+pub struct Module<MD, C> {
+    pub name: &'static str,
+    pub definition: MD,
+    pub cloud: PhantomData<C>,
+}
+
+impl <C: Cloud, MD: ModuleDefinition<C>> Module<MD, C> {
+    pub fn outputs(&self) -> MD::Outputs {
+        todo!()
+    }
+}
+
 pub trait ModuleDefinition<C: Cloud>: std::fmt::Debug
 where
     Self: Sized,
@@ -26,9 +40,8 @@ where
     type Outputs;
     type Providers;
 
-    // TODO: Not sure about DesiredState here... it might move into some kind of Trait
-    // that extracts connections?
-    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> Self::Outputs;
+    // TODO is this right?
+    fn define(providers: &mut Self::Providers, input: Self::Inputs) -> Self::Outputs;
 }
 
 #[async_trait]

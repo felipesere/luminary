@@ -9,12 +9,12 @@ use luminary::ModuleDefinition;
 
 #[derive(Debug)]
 struct MyWebsite {
-    bucket: Arc<s3::Bucket>,
-    object: Arc<s3::BucketObject>,
+    inputs: &'static str,
 }
 
 // Will be used for something meaningful down the line
 #[allow(dead_code)]
+#[derive(Debug)]
 struct MyWebsiteOutput {
     pub arn: Arn<s3::Bucket>,
 }
@@ -24,7 +24,7 @@ impl ModuleDefinition<Aws> for MyWebsite {
     type Outputs = MyWebsiteOutput;
     type Providers = AwsProvider;
 
-    fn new(provider: &mut AwsProvider, bucket_name: Self::Inputs) -> MyWebsiteOutput {
+    fn define(provider: &mut AwsProvider, bucket_name: Self::Inputs) -> MyWebsiteOutput {
         let bucket = provider
             .s3_bucket(bucket_name)
             .website(s3::Website {
@@ -35,7 +35,7 @@ impl ModuleDefinition<Aws> for MyWebsite {
 
         let _object = provider
             .s3_bucket_object()
-            // Just pass down a reference to a bucket, 
+            // Just pass down a reference to a bucket,
             // .bucket(&bucket)
             .bucket(Arc::clone(&bucket))
             .key("f.json")
@@ -50,7 +50,11 @@ impl ModuleDefinition<Aws> for MyWebsite {
 
 #[derive(Debug)]
 struct ThreeWebsites {
-    sites: (MyWebsite, MyWebsite, MyWebsite),
+    sites: (
+        <MyWebsite as ModuleDefinition<Aws>>::Inputs,
+        <MyWebsite as ModuleDefinition<Aws>>::Inputs,
+        <MyWebsite as ModuleDefinition<Aws>>::Inputs,
+    )
 }
 
 impl ModuleDefinition<Aws> for ThreeWebsites {
@@ -66,12 +70,13 @@ impl ModuleDefinition<Aws> for ThreeWebsites {
     );
     type Providers = AwsProvider;
 
-    fn new(providers: &mut Self::Providers, input: Self::Inputs) -> Self::Outputs {
-        let first = MyWebsite::new(providers, input.0);
-        let second = MyWebsite::new(providers, input.1);
-        let third = MyWebsite::new(providers, input.2);
+    fn define(providers: &mut Self::Providers, input: Self::Inputs) -> Self::Outputs {
 
-        (first, second, third)
+        let first = providers.module("first", MyWebsite{ inputs: input.0 });
+        let second = providers.module("second", MyWebsite{ inputs: input.0 });
+        let third = providers.module("third", MyWebsite{ inputs: input.0 });
+
+        (first.outputs(), second.outputs(), third.outputs())
     }
 }
 
@@ -79,12 +84,11 @@ impl ModuleDefinition<Aws> for ThreeWebsites {
 pub async fn main() -> Result<(), String> {
     let mut provider = AwsProvider::from_env().map_err(|e| format!("Missing env key: {}", e))?;
 
-    // let module = MyWebsite::new(&mut provider, "luminary-rs-unique-v1");
-    //
-    let _module = ThreeWebsites::new(
-        &mut provider,
-        ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"),
-    );
+    let _x = provider.module("my-fancy-module", MyWebsite{ inputs: "my-bucket-name" });
+
+    let _three_sites = provider.module("three-websites", ThreeWebsites {
+        sites: ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"),
+    });
 
     provider.create().await?;
 

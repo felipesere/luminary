@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate derive_builder;
 
-use luminary::{Cloud, Resource};
+use luminary::{Cloud, Module, ModuleDefinition, Resource};
 use std::collections::HashMap;
 use std::env::VarError;
 use std::fmt;
@@ -19,6 +19,12 @@ struct Inner {
 }
 
 pub struct AwsProvider(Arc<Inner>);
+
+impl fmt::Debug for AwsProvider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "An AWS Provider")
+    }
+}
 
 impl Clone for AwsProvider {
     fn clone(&self) -> Self {
@@ -90,6 +96,17 @@ impl AwsProvider {
         }
 
         Ok(())
+    }
+
+    pub fn module<MD>(&self,  module_name: &'static str, definition: MD) -> Module<MD, Aws>
+        where
+            MD: ModuleDefinition<Aws>,
+    {
+        Module {
+            name: module_name,
+            definition,
+            cloud: std::marker::PhantomData,
+        }
     }
 }
 
