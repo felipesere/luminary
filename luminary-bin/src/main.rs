@@ -9,12 +9,12 @@ use luminary::ModuleDefinition;
 
 #[derive(Debug)]
 struct MyWebsite {
-    inputs: &'static str,
+    bucket_name: &'static str,
 }
 
 // Will be used for something meaningful down the line
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct MyWebsiteOutput {
     pub arn: Arn<s3::Bucket>,
 }
@@ -24,9 +24,9 @@ impl ModuleDefinition<Aws> for MyWebsite {
     type Outputs = MyWebsiteOutput;
     type Providers = AwsProvider;
 
-    fn define(provider: &mut AwsProvider, bucket_name: Self::Inputs) -> MyWebsiteOutput {
+    fn define(&self, provider: &mut AwsProvider) -> MyWebsiteOutput {
         let bucket = provider
-            .s3_bucket(bucket_name)
+            .s3_bucket(self.bucket_name)
             .website(s3::Website {
                 index_document: "index.html".into(),
             })
@@ -54,7 +54,7 @@ struct ThreeWebsites {
         <MyWebsite as ModuleDefinition<Aws>>::Inputs,
         <MyWebsite as ModuleDefinition<Aws>>::Inputs,
         <MyWebsite as ModuleDefinition<Aws>>::Inputs,
-    )
+    ),
 }
 
 impl ModuleDefinition<Aws> for ThreeWebsites {
@@ -70,11 +70,25 @@ impl ModuleDefinition<Aws> for ThreeWebsites {
     );
     type Providers = AwsProvider;
 
-    fn define(providers: &mut Self::Providers, input: Self::Inputs) -> Self::Outputs {
-
-        let first = providers.module("first", MyWebsite{ inputs: input.0 });
-        let second = providers.module("second", MyWebsite{ inputs: input.0 });
-        let third = providers.module("third", MyWebsite{ inputs: input.0 });
+    fn define(&self, providers: &mut Self::Providers) -> Self::Outputs {
+        let first = providers.module(
+            "first",
+            MyWebsite {
+                bucket_name: self.sites.0,
+            },
+        );
+        let second = providers.module(
+            "second",
+            MyWebsite {
+                bucket_name: self.sites.1,
+            },
+        );
+        let third = providers.module(
+            "third",
+            MyWebsite {
+                bucket_name: self.sites.2,
+            },
+        );
 
         (first.outputs(), second.outputs(), third.outputs())
     }
@@ -86,13 +100,22 @@ pub async fn main() -> Result<(), String> {
 
     provider.s3_bucket("lonely-bucket-rs-v1").build().unwrap();
 
-    let _x = provider.module("my-fancy-module", MyWebsite{ inputs: "my-bucket-name" });
+    let _x = provider.module(
+        "my-fancy-module",
+        MyWebsite {
+            bucket_name: "my-bucket-name",
+        },
+    );
 
-    let _three_sites = provider.module("three-websites", ThreeWebsites {
-        sites: ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"),
-    });
+    let _three_sites = provider.module(
+        "three-websites",
+        ThreeWebsites {
+            sites: ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"),
+        },
+    );
 
-    provider.create().await?;
+    // dbg!(&provider);
+    // provider.create().await?;
 
     Ok(())
 }

@@ -12,10 +12,60 @@ pub use value::Value;
 pub struct System {}
 
 // The address of an object in Luminary
-#[derive(Hash, PartialEq, Eq)]
-pub struct Address{
+#[derive(Hash, PartialEq, Eq, Clone)]
+pub struct Segment {
     pub name: String,
     pub kind: String,
+}
+
+impl std::fmt::Debug for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.kind, self.name)
+    }
+}
+
+// The address of an object in Luminary
+#[derive(Hash, PartialEq, Eq, Clone)]
+pub struct Address(Vec<Segment>);
+
+impl std::fmt::Debug for Address {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let address = self
+            .0
+            .iter()
+            .map(|s| format!("{:?}", s))
+            .collect::<Vec<_>>()
+            .join("/");
+
+        write!(f, "{}", address)
+    }
+}
+
+impl Address {
+    pub fn root() -> Address {
+        Address(vec![Segment {
+            kind: "".into(),
+            name: "".into(),
+        }])
+    }
+
+    pub fn child(&self, child: Segment) -> Address {
+        let mut other = self.clone();
+
+        other.0.push(child);
+
+        other
+    }
+
+    pub fn parent(&self) -> Address {
+        let mut other = self.clone();
+        if other.0.len() <= 1 {
+            other
+        } else {
+            other.0.pop();
+            other
+        }
+    }
 }
 
 // Sort of part of the addressing system?
@@ -24,15 +74,27 @@ pub struct Address{
 // a parent scope...
 pub struct Scope {}
 
-pub struct Module<MD, C> {
+pub struct Module<MD, C>
+where
+    C: Cloud,
+    MD: ModuleDefinition<C>,
+{
     pub name: &'static str,
-    pub definition: MD,
+    pub outputs: <MD as ModuleDefinition<C>>::Outputs,
+
+    // Not sure about these?
+    pub definition: PhantomData<MD>,
     pub cloud: PhantomData<C>,
 }
 
-impl <C: Cloud, MD: ModuleDefinition<C>> Module<MD, C> {
+impl<C, MD> Module<MD, C>
+where
+    C: Cloud,
+    MD: ModuleDefinition<C>,
+    <MD as ModuleDefinition<C>>::Outputs: Clone,
+{
     pub fn outputs(&self) -> MD::Outputs {
-        todo!()
+        self.outputs.clone()
     }
 }
 
@@ -45,18 +107,16 @@ where
     type Providers;
 
     // TODO is this right?
-    fn define(providers: &mut Self::Providers, input: Self::Inputs) -> Self::Outputs;
+    fn define(&self, providers: &mut Self::Providers) -> Self::Outputs;
 }
 
 #[async_trait]
-pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {
-}
+pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {}
 
 #[async_trait]
-pub trait Creatable<C: Cloud> {
+pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
     async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<RealState, String>;
 }
-
 
 #[async_trait]
 impl<T, C> Resource<C> for std::sync::Arc<T>

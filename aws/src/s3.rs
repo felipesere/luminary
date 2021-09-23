@@ -3,7 +3,7 @@ use crate::{Arn, ArnBuilder, Aws, AwsProvider, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{Address, Creatable, RealState, Resource, Value};
+use luminary::{Creatable, RealState, Resource, Segment, Value};
 
 use std::default::Default;
 use std::rc::Rc;
@@ -63,13 +63,15 @@ impl BucketBuilder {
 
         let arced_bucket = Arc::new(bucket);
 
-        let object_address = Address {
+        let object_address = Segment {
             name: self.name,
             kind: "s3_bucket".into(),
         };
 
-        self.provider
-            .track(object_address, Arc::clone(&arced_bucket) as Arc<dyn Resource<Aws>>);
+        self.provider.track(
+            object_address,
+            Arc::clone(&arced_bucket) as Arc<dyn Creatable<Aws>>,
+        );
 
         Some(arced_bucket)
     }
@@ -177,13 +179,15 @@ impl BucketObjectBuilder {
 
         let arced_object = Arc::new(object);
 
-        let object_address = Address {
+        let object_address = Segment {
             name: key,
             kind: "s3_bucket_object".into(),
         };
 
-        self.provider
-            .track(object_address, Arc::clone(&arced_object) as Arc<dyn Resource<Aws>>);
+        self.provider.track(
+            object_address,
+            Arc::clone(&arced_object) as Arc<dyn Creatable<Aws>>,
+        );
 
         Some(arced_object)
     }
