@@ -84,6 +84,8 @@ impl ModuleDefinition<Aws> for ThreeWebsites {
 pub async fn main() -> Result<(), String> {
     let mut provider = AwsProvider::from_env().map_err(|e| format!("Missing env key: {}", e))?;
 
+    provider.s3_bucket("lonely-bucket-rs-v1").build().unwrap();
+
     let _x = provider.module("my-fancy-module", MyWebsite{ inputs: "my-bucket-name" });
 
     let _three_sites = provider.module("three-websites", ThreeWebsites {

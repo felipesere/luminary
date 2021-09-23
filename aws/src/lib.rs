@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate derive_builder;
 
-use luminary::{Cloud, Creatable, Module, ModuleDefinition, Resource};
+use luminary::{Address, Cloud, Module, ModuleDefinition, Resource};
 use std::collections::HashMap;
 use std::env::VarError;
 use std::fmt;
@@ -15,7 +15,7 @@ pub mod s3;
 struct Inner {
     creds: Credentials,
     region: String,
-    tracked_resources: RwLock<Vec<Arc<dyn Resource<Aws>>>>,
+    tracked_resources: RwLock<HashMap<Address, Arc<dyn Resource<Aws>>>>,
 }
 
 pub struct AwsProvider(Arc<Inner>);
@@ -85,13 +85,13 @@ impl AwsProvider {
     }
 
     // Can this be done better?
-    pub fn track(&mut self, resource: Arc<dyn Resource<Aws>>) {
-        self.0.tracked_resources.write().unwrap().push(resource);
+    pub fn track(&mut self, address: Address, resource: Arc<dyn Resource<Aws>>) {
+        self.0.tracked_resources.write().unwrap().insert(address, resource);
     }
 
     pub async fn create(&mut self) -> Result<(), String> {
         let resources = self.0.tracked_resources.read().unwrap();
-        for resource in resources.iter() {
+        for (_, resource) in resources.iter() {
             resource.create(self).await?;
         }
 

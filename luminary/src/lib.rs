@@ -12,7 +12,11 @@ pub use value::Value;
 pub struct System {}
 
 // The address of an object in Luminary
-pub struct Address(String);
+#[derive(Hash, PartialEq, Eq)]
+pub struct Address{
+    pub name: String,
+    pub kind: String,
+}
 
 // Sort of part of the addressing system?
 // A module should form "a scope",
