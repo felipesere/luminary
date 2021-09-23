@@ -45,12 +45,25 @@ where
 }
 
 #[async_trait]
-pub trait Resource<C: Cloud>: std::fmt::Debug + Send + Sync {
-    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<RealState, String>;
+pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {
 }
 
 #[async_trait]
+pub trait Creatable<C: Cloud> {
+    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<RealState, String>;
+}
+
+
+#[async_trait]
 impl<T, C> Resource<C> for std::sync::Arc<T>
+where
+    C: Cloud,
+    T: Resource<C> + Send + Sync,
+{
+}
+
+#[async_trait]
+impl<T, C> Creatable<C> for std::sync::Arc<T>
 where
     C: Cloud,
     T: Resource<C> + Send + Sync,

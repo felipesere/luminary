@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate derive_builder;
 
-use luminary::{Cloud, Module, ModuleDefinition, Resource};
+use luminary::{Cloud, Creatable, Module, ModuleDefinition, Resource};
 use std::collections::HashMap;
 use std::env::VarError;
 use std::fmt;

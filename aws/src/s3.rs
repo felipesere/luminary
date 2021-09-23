@@ -3,7 +3,7 @@ use crate::{Arn, ArnBuilder, Aws, AwsProvider, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{RealState, Resource, Value};
+use luminary::{Creatable, RealState, Resource, Value};
 
 use std::default::Default;
 use std::rc::Rc;
@@ -55,7 +55,7 @@ impl BucketBuilder {
 
     pub fn build(mut self) -> Option<Arc<Bucket>> {
         let bucket = Bucket {
-            name: self.name,
+            name: self.name.clone(),
             acl: self.acl,
             website: self.website,
             tags: self.tags,
@@ -69,9 +69,10 @@ impl BucketBuilder {
         Some(arced_bucket)
     }
 }
+impl Resource<Aws> for Bucket {}
 
 #[async_trait]
-impl Resource<Aws> for Bucket {
+impl Creatable<Aws> for Bucket {
     async fn create(&self, provider: &AwsProvider) -> Result<RealState, String> {
         let config = provider.config();
         let client = Client::from_conf(config);
@@ -177,8 +178,10 @@ impl BucketObjectBuilder {
     }
 }
 
+impl Resource<Aws> for BucketObject {}
+
 #[async_trait]
-impl Resource<Aws> for BucketObject {
+impl Creatable<Aws> for BucketObject {
     async fn create(&self, provider: &AwsProvider) -> Result<RealState, String> {
         let config = provider.config();
         let client = Client::from_conf(config);
