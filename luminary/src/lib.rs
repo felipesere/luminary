@@ -138,7 +138,6 @@ where
 /// how a a cloud works. Cloud here could be things
 /// like `Aws`, or `Azure` and `GCP`
 pub trait Cloud: Send + Sync {
-    type Provider: Send + Sync; // TODO: deprecate this
     type ProviderApi: Send + Sync;
 }
 

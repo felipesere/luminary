@@ -37,7 +37,6 @@ impl Clone for AwsDetails {
 pub enum Aws {}
 
 impl Cloud for Aws {
-    type Provider = AwsDetails;
     type ProviderApi = AwsApi;
 }
 
