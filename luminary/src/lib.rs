@@ -1,4 +1,6 @@
-use std::marker::PhantomData;
+use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use dyn_clone::DynClone;
@@ -81,10 +83,6 @@ where
 {
     pub name: &'static str,
     pub outputs: <MD as ModuleDefinition<C>>::Outputs,
-
-    // Not sure about these?
-    pub definition: PhantomData<MD>,
-    pub cloud: PhantomData<C>,
 }
 
 impl<C, MD> Module<MD, C>
@@ -104,10 +102,9 @@ where
 {
     type Inputs;
     type Outputs;
-    type Providers;
 
     // TODO is this right?
-    fn define(&self, providers: &mut Self::Providers) -> Self::Outputs;
+    fn define(&self, providers: &mut Provider<C>) -> Self::Outputs;
 }
 
 #[async_trait]
@@ -115,7 +112,7 @@ pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {}
 
 #[async_trait]
 pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
-    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<RealState, String>;
+    async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<RealState, String>;
 }
 
 #[async_trait]
@@ -132,7 +129,7 @@ where
     C: Cloud,
     T: Resource<C> + Send + Sync,
 {
-    async fn create(&self, provider: &<C as Cloud>::Provider) -> Result<RealState, String> {
+    async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<RealState, String> {
         self.as_ref().create(provider).await
     }
 }
@@ -141,10 +138,70 @@ where
 /// how a a cloud works. Cloud here could be things
 /// like `Aws`, or `Azure` and `GCP`
 pub trait Cloud: Send + Sync {
-    type Provider: Send + Sync;
+    type Provider: Send + Sync; // TODO: deprecate this
+    type ProviderApi: Send + Sync;
 }
 
-pub trait Provider<C: Cloud>: Send + Sync {}
+pub struct Provider<C: Cloud> {
+    api: C::ProviderApi,
+    tracked_resources: RwLock<HashMap<Address, Arc<dyn Creatable<C>>>>,
+    current_address: RwLock<Address>,
+}
+
+impl<C: Cloud> Deref for Provider<C> {
+    type Target = C::ProviderApi;
+
+    fn deref(&self) -> &Self::Target {
+        &self.api
+    }
+}
+
+impl<C: Cloud> DerefMut for Provider<C> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.api
+    }
+}
+
+impl<C: Cloud> Provider<C> {
+    pub fn new(api: C::ProviderApi) -> Self {
+        Self {
+            api,
+            tracked_resources: Default::default(),
+            current_address: RwLock::new(Address::root()),
+        }
+    }
+
+    pub fn track(&mut self, relative_address: Segment, resource: Arc<dyn Creatable<C>>) {
+        let real = self.current_address.read().unwrap().child(relative_address);
+        println!("Tracking {:?}", real);
+
+        self.tracked_resources
+            .write()
+            .unwrap()
+            .insert(real, resource);
+    }
+
+    pub fn module<MD>(&mut self, module_name: &'static str, definition: MD) -> Module<MD, C>
+    where
+        MD: ModuleDefinition<C>,
+    {
+        let current_address = self.current_address.read().unwrap().clone();
+        let module_address = current_address.child(Segment {
+            kind: "module".into(),
+            name: module_name.into(),
+        });
+        *self.current_address.write().unwrap() = module_address;
+
+        let outputs = definition.define(self);
+
+        *self.current_address.write().unwrap() = current_address;
+
+        Module {
+            name: module_name,
+            outputs,
+        }
+    }
+}
 
 /// The state as it is known to our Cloud providers
 /// We get this from refreshing the resources that

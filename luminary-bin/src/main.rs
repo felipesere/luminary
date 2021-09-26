@@ -1,7 +1,9 @@
 use aws::s3;
 use aws::Arn;
 use aws::Aws;
-use aws::AwsProvider;
+use aws::AwsApi;
+use aws::AwsDetails;
+use luminary::Provider;
 
 use std::sync::Arc;
 
@@ -22,9 +24,8 @@ struct MyWebsiteOutput {
 impl ModuleDefinition<Aws> for MyWebsite {
     type Inputs = &'static str;
     type Outputs = MyWebsiteOutput;
-    type Providers = AwsProvider;
 
-    fn define(&self, provider: &mut AwsProvider) -> MyWebsiteOutput {
+    fn define(&self, provider: &mut Provider<Aws>) -> MyWebsiteOutput {
         let bucket = provider
             .s3_bucket(self.bucket_name)
             .website(s3::Website {
@@ -68,9 +69,8 @@ impl ModuleDefinition<Aws> for ThreeWebsites {
         <MyWebsite as ModuleDefinition<Aws>>::Outputs,
         <MyWebsite as ModuleDefinition<Aws>>::Outputs,
     );
-    type Providers = AwsProvider;
 
-    fn define(&self, providers: &mut Self::Providers) -> Self::Outputs {
+    fn define(&self, providers: &mut Provider<Aws>) -> Self::Outputs {
         let first = providers.module(
             "first",
             MyWebsite {
@@ -96,7 +96,11 @@ impl ModuleDefinition<Aws> for ThreeWebsites {
 
 #[tokio::main]
 pub async fn main() -> Result<(), String> {
-    let mut provider = AwsProvider::from_env().map_err(|e| format!("Missing env key: {}", e))?;
+    let mut details = AwsDetails::from_env().map_err(|e| format!("Missing env key: {}", e))?;
+
+    let api = AwsApi::new(details);
+
+    let mut provider: Provider<Aws> = Provider::new(api);
 
     provider.s3_bucket("lonely-bucket-rs-v1").build().unwrap();
 

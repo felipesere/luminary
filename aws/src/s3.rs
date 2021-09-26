@@ -1,9 +1,9 @@
 use crate::iam::PolicyDocument;
-use crate::{Arn, ArnBuilder, Aws, AwsProvider, Tags};
+use crate::{Arn, ArnBuilder, Aws, AwsApi, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{Creatable, RealState, Resource, Segment, Value};
+use luminary::{Creatable, Provider, RealState, Resource, Segment, Value};
 
 use std::default::Default;
 use std::rc::Rc;
@@ -30,7 +30,7 @@ pub struct Bucket {
 }
 
 pub struct BucketBuilder {
-    provider: AwsProvider,
+    provider: Provider<Aws>,
     name: String,
     acl: Acl,
     website: Option<Website>,
@@ -38,7 +38,7 @@ pub struct BucketBuilder {
 }
 
 impl BucketBuilder {
-    pub fn new(provider: AwsProvider, name: impl Into<String>) -> Self {
+    pub fn new(provider: Provider<Aws>, name: impl Into<String>) -> Self {
         BucketBuilder {
             provider,
             name: name.into(),
@@ -80,8 +80,8 @@ impl Resource<Aws> for Bucket {}
 
 #[async_trait]
 impl Creatable<Aws> for Bucket {
-    async fn create(&self, provider: &AwsProvider) -> Result<RealState, String> {
-        let config = provider.config();
+    async fn create(&self, provider: &AwsApi) -> Result<RealState, String> {
+        let config = provider.details.config();
         let client = Client::from_conf(config);
 
         let request = client.create_bucket().bucket(self.name.clone());
@@ -130,7 +130,7 @@ pub struct BucketObject {
 }
 
 pub struct BucketObjectBuilder {
-    provider: AwsProvider,
+    provider: Provider<Aws>,
     bucket: Option<Arc<Bucket>>,
     key: Option<String>,
     content_type: Option<String>,
@@ -138,7 +138,7 @@ pub struct BucketObjectBuilder {
 }
 
 impl BucketObjectBuilder {
-    pub fn new(provider: AwsProvider) -> Self {
+    pub fn new(provider: Provider<Aws>) -> Self {
         BucketObjectBuilder {
             provider,
             bucket: None,
@@ -197,8 +197,8 @@ impl Resource<Aws> for BucketObject {}
 
 #[async_trait]
 impl Creatable<Aws> for BucketObject {
-    async fn create(&self, provider: &AwsProvider) -> Result<RealState, String> {
-        let config = provider.config();
+    async fn create(&self, provider: &AwsApi) -> Result<RealState, String> {
+        let config = provider.details.config();
         let client = Client::from_conf(config);
 
         let request = client
