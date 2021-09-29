@@ -35,3 +35,12 @@ Code *structure/layout*: I want to figure out multiple-workspaces to emulate how
    * [ ] No changes present
    * [ ] Changes present
 * [ ] Create an S3 object within the S3 bucket
+
+
+## Links to Playground
+
+I am currently stuck on a structural issue.
+To share this with friends, I've created a _miniscule_
+reproduction in the Playground.
+You can find it [here](https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=8180ed521350b6b26ef723c992410d2f) and the
+matching Gist [here](https://gist.github.com/rust-play/8180ed521350b6b26ef723c992410d2f)
