@@ -60,12 +60,10 @@ impl Address {
 
     pub fn parent(&self) -> Address {
         let mut other = self.clone();
-        if other.0.len() <= 1 {
-            other
-        } else {
+        if other.0.len() > 1 {
             other.0.pop();
-            other
         }
+        other
     }
 }
 
@@ -111,6 +109,7 @@ pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {}
 
 #[async_trait]
 pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
+    fn kind(&self) -> &'static str;
     async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<RealState, String>;
 }
 
@@ -131,6 +130,10 @@ where
     async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<RealState, String> {
         self.as_ref().create(provider).await
     }
+
+    fn kind(&self) -> &'static str {
+        self.as_ref().kind()
+    }
 }
 
 /// A very intersting trait that configures
@@ -146,12 +149,6 @@ pub struct Provider<C: Cloud> {
     current_address: RwLock<Address>,
 }
 
-pub trait Builder {
-    type Product;
-
-    fn build(self) -> (Segment, Self::Product);
-}
-
 impl<C: Cloud> Provider<C> {
     pub fn new(api: C::ProviderApi) -> Self {
         Self {
@@ -161,13 +158,16 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
-    pub fn build<F, B>(&mut self, builder: F) -> Arc<<B as Builder>::Product>
+    pub fn build<F, O>(&mut self, name: &'static str, builder: F) -> Arc<O>
     where
-        F: FnOnce(&mut C::ProviderApi) -> B,
-        B: Builder,
-        <B as Builder>::Product: Creatable<C> + 'static,
+        F: FnOnce(&mut C::ProviderApi) -> O,
+        O: Creatable<C> + 'static,
     {
-        let (address, object) = builder(&mut self.api).build();
+        let object = builder(&mut self.api);
+        let address = Segment {
+            name: name.to_string(),
+            kind: object.kind().to_string(),
+        };
 
         let wrapped = Arc::new(object);
 

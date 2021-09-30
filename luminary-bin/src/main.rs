@@ -26,13 +26,15 @@ impl ModuleDefinition<Aws> for MyWebsite {
     type Outputs = MyWebsiteOutput;
 
     fn define(&self, provider: &mut Provider<Aws>) -> MyWebsiteOutput {
-        let bucket = provider.build(|api| {
-            api.s3_bucket(self.bucket_name).website(s3::Website {
-                index_document: "index.html".into(),
-            })
+        let bucket = provider.build("my-other-bucket", |api| {
+            api.s3_bucket(self.bucket_name)
+                .website(s3::Website {
+                    index_document: "index.html".into(),
+                })
+                .build()
         });
 
-        let _object = provider.build(|api| {
+        let _object = provider.build("the-object", |api| {
             api.s3_bucket_object()
                 // Just pass down a reference to a bucket,
                 // .bucket(&bucket)
@@ -40,6 +42,7 @@ impl ModuleDefinition<Aws> for MyWebsite {
                 .key("f.json")
                 .content_type("application/json")
                 .content("{\"key\": true}")
+                .build()
         });
 
         MyWebsiteOutput { arn: bucket.arn() }
@@ -99,7 +102,9 @@ pub async fn main() -> Result<(), String> {
 
     let mut provider: Provider<Aws> = Provider::new(api);
 
-    provider.build(|api| api.s3_bucket("lonely-bucket-rs-v1"));
+    provider.build("my-bucket", |api| {
+        api.s3_bucket("lonely-bucket-rs-v1").build()
+    });
 
     let _x = provider.module(
         "my-fancy-module",

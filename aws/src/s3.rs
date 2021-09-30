@@ -3,7 +3,7 @@ use crate::{Arn, ArnBuilder, Aws, AwsApi, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{Creatable, RealState, Resource, Segment, Value};
+use luminary::{Creatable, RealState, Resource, Value};
 
 use std::default::Default;
 use std::rc::Rc;
@@ -36,27 +36,6 @@ pub struct BucketBuilder {
     tags: Tags,
 }
 
-impl luminary::Builder for BucketBuilder {
-    type Product = Bucket;
-
-    fn build(self) -> (Segment, Self::Product) {
-        let segment = Segment {
-            name: self.name.clone(),
-            kind: "s3_bucket".into(),
-        };
-
-        (
-            segment,
-            Bucket {
-                name: self.name.clone(),
-                acl: self.acl,
-                website: self.website,
-                tags: self.tags,
-            },
-        )
-    }
-}
-
 impl BucketBuilder {
     pub fn new(name: impl Into<String>) -> Self {
         BucketBuilder {
@@ -71,6 +50,15 @@ impl BucketBuilder {
         self.website = Some(website);
         self
     }
+
+    pub fn build(self) -> Bucket {
+        Bucket {
+            name: self.name.clone(),
+            acl: self.acl,
+            website: self.website,
+            tags: self.tags,
+        }
+    }
 }
 impl Resource<Aws> for Bucket {}
 
@@ -84,6 +72,10 @@ impl Creatable<Aws> for Bucket {
         let response = request.send().await.map_err(|e| e.to_string())?;
         dbg!(response);
         Ok(RealState {})
+    }
+
+    fn kind(&self) -> &'static str {
+        "s3_bucket"
     }
 }
 
@@ -132,28 +124,6 @@ pub struct BucketObjectBuilder {
     content: Option<String>,
 }
 
-impl luminary::Builder for BucketObjectBuilder {
-    type Product = BucketObject;
-
-    fn build(self) -> (Segment, Self::Product) {
-        let key = self.key.unwrap();
-        let segment = Segment {
-            name: key.clone(),
-            kind: "s3_bucket_object".into(),
-        };
-
-        (
-            segment,
-            BucketObject {
-                bucket: self.bucket.unwrap(),
-                key,
-                content_type: self.content_type.unwrap(),
-                content: self.content.unwrap(),
-            },
-        )
-    }
-}
-
 impl BucketObjectBuilder {
     pub fn new() -> Self {
         BucketObjectBuilder {
@@ -161,6 +131,15 @@ impl BucketObjectBuilder {
             key: None,
             content_type: None,
             content: None,
+        }
+    }
+
+    pub fn build(self) -> BucketObject {
+        BucketObject {
+            bucket: self.bucket.unwrap(),
+            key: self.key.unwrap(),
+            content_type: self.content_type.unwrap(),
+            content: self.content.unwrap(),
         }
     }
 
@@ -204,6 +183,10 @@ impl Creatable<Aws> for BucketObject {
         dbg!(response);
 
         Ok(RealState {})
+    }
+
+    fn kind(&self) -> &'static str {
+        "s3_bucket_object"
     }
 }
 
