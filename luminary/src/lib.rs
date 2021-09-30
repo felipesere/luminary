@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
@@ -147,18 +146,10 @@ pub struct Provider<C: Cloud> {
     current_address: RwLock<Address>,
 }
 
-impl<C: Cloud> Deref for Provider<C> {
-    type Target = C::ProviderApi;
+pub trait Builder {
+    type Product;
 
-    fn deref(&self) -> &Self::Target {
-        &self.api
-    }
-}
-
-impl<C: Cloud> DerefMut for Provider<C> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.api
-    }
+    fn build(self) -> (Segment, Self::Product);
 }
 
 impl<C: Cloud> Provider<C> {
@@ -168,6 +159,21 @@ impl<C: Cloud> Provider<C> {
             tracked_resources: Default::default(),
             current_address: RwLock::new(Address::root()),
         }
+    }
+
+    pub fn build<F, B>(&mut self, builder: F) -> Arc<<B as Builder>::Product>
+    where
+        F: FnOnce(&mut C::ProviderApi) -> B,
+        B: Builder,
+        <B as Builder>::Product: Creatable<C> + 'static,
+    {
+        let (address, object) = builder(&mut self.api).build();
+
+        let wrapped = Arc::new(object);
+
+        self.track(address, Arc::clone(&wrapped) as Arc<dyn Creatable<C>>);
+
+        wrapped
     }
 
     pub fn track(&mut self, relative_address: Segment, resource: Arc<dyn Creatable<C>>) {

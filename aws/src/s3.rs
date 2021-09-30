@@ -3,7 +3,7 @@ use crate::{Arn, ArnBuilder, Aws, AwsApi, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{Creatable, Provider, RealState, Resource, Segment, Value};
+use luminary::{Creatable, RealState, Resource, Segment, Value};
 
 use std::default::Default;
 use std::rc::Rc;
@@ -30,17 +30,36 @@ pub struct Bucket {
 }
 
 pub struct BucketBuilder {
-    provider: Provider<Aws>,
     name: String,
     acl: Acl,
     website: Option<Website>,
     tags: Tags,
 }
 
+impl luminary::Builder for BucketBuilder {
+    type Product = Bucket;
+
+    fn build(self) -> (Segment, Self::Product) {
+        let segment = Segment {
+            name: self.name.clone(),
+            kind: "s3_bucket".into(),
+        };
+
+        (
+            segment,
+            Bucket {
+                name: self.name.clone(),
+                acl: self.acl,
+                website: self.website,
+                tags: self.tags,
+            },
+        )
+    }
+}
+
 impl BucketBuilder {
-    pub fn new(provider: Provider<Aws>, name: impl Into<String>) -> Self {
+    pub fn new(name: impl Into<String>) -> Self {
         BucketBuilder {
-            provider,
             name: name.into(),
             acl: Acl::default(),
             website: None,
@@ -51,29 +70,6 @@ impl BucketBuilder {
     pub fn website(mut self, website: Website) -> Self {
         self.website = Some(website);
         self
-    }
-
-    pub fn build(mut self) -> Option<Arc<Bucket>> {
-        let bucket = Bucket {
-            name: self.name.clone(),
-            acl: self.acl,
-            website: self.website,
-            tags: self.tags,
-        };
-
-        let arced_bucket = Arc::new(bucket);
-
-        let object_address = Segment {
-            name: self.name,
-            kind: "s3_bucket".into(),
-        };
-
-        self.provider.track(
-            object_address,
-            Arc::clone(&arced_bucket) as Arc<dyn Creatable<Aws>>,
-        );
-
-        Some(arced_bucket)
     }
 }
 impl Resource<Aws> for Bucket {}
@@ -130,17 +126,37 @@ pub struct BucketObject {
 }
 
 pub struct BucketObjectBuilder {
-    provider: Provider<Aws>,
     bucket: Option<Arc<Bucket>>,
     key: Option<String>,
     content_type: Option<String>,
     content: Option<String>,
 }
 
+impl luminary::Builder for BucketObjectBuilder {
+    type Product = BucketObject;
+
+    fn build(self) -> (Segment, Self::Product) {
+        let key = self.key.unwrap();
+        let segment = Segment {
+            name: key.clone(),
+            kind: "s3_bucket_object".into(),
+        };
+
+        (
+            segment,
+            BucketObject {
+                bucket: self.bucket.unwrap(),
+                key,
+                content_type: self.content_type.unwrap(),
+                content: self.content.unwrap(),
+            },
+        )
+    }
+}
+
 impl BucketObjectBuilder {
-    pub fn new(provider: Provider<Aws>) -> Self {
+    pub fn new() -> Self {
         BucketObjectBuilder {
-            provider,
             bucket: None,
             key: None,
             content_type: None,
@@ -166,30 +182,6 @@ impl BucketObjectBuilder {
     pub fn content(mut self, content: impl Into<String>) -> Self {
         self.content = Some(content.into());
         self
-    }
-
-    pub fn build(mut self) -> Option<Arc<BucketObject>> {
-        let key = self.key.unwrap();
-        let object = BucketObject {
-            bucket: self.bucket.unwrap(),
-            key: key.clone(),
-            content_type: self.content_type.unwrap(),
-            content: self.content.unwrap(),
-        };
-
-        let arced_object = Arc::new(object);
-
-        let object_address = Segment {
-            name: key,
-            kind: "s3_bucket_object".into(),
-        };
-
-        self.provider.track(
-            object_address,
-            Arc::clone(&arced_object) as Arc<dyn Creatable<Aws>>,
-        );
-
-        Some(arced_object)
     }
 }
 

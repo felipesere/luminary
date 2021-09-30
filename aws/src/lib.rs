@@ -51,15 +51,11 @@ impl AwsApi {
     }
 
     pub fn s3_bucket(&self, name: impl Into<String>) -> s3::BucketBuilder {
-        let fresh_copy = self.clone();
-        // s3::BucketBuilder::new(fresh_copy, name)
-        todo!("circle back if this compiles")
+        s3::BucketBuilder::new(name)
     }
 
     pub fn s3_bucket_object(&mut self) -> s3::BucketObjectBuilder {
-        let fresh_copy = self.clone();
-        // s3::BucketObjectBuilder::new(fresh_copy)
-        todo!("circle back if this compiles")
+        s3::BucketObjectBuilder::new()
     }
 }
 
