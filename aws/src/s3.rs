@@ -21,43 +21,21 @@ impl Default for Acl {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone, Debug)]
+#[builder(setter(strip_option, into), pattern = "owned")]
 pub struct Bucket {
     pub name: String,
+    #[builder(default)]
     pub acl: Acl,
+    #[builder(default)]
     pub website: Option<Website>,
+    #[builder(default)]
     pub tags: Tags,
-}
-
-pub struct BucketBuilder {
-    name: String,
-    acl: Acl,
-    website: Option<Website>,
-    tags: Tags,
 }
 
 impl BucketBuilder {
     pub fn new(name: impl Into<String>) -> Self {
-        BucketBuilder {
-            name: name.into(),
-            acl: Acl::default(),
-            website: None,
-            tags: Tags::empty(),
-        }
-    }
-
-    pub fn website(mut self, website: Website) -> Self {
-        self.website = Some(website);
-        self
-    }
-
-    pub fn build(self) -> Bucket {
-        Bucket {
-            name: self.name.clone(),
-            acl: self.acl,
-            website: self.website,
-            tags: self.tags,
-        }
+        BucketBuilder::default().name(name)
     }
 }
 impl Resource<Aws> for Bucket {}
@@ -109,7 +87,8 @@ pub struct Website {
     pub index_document: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone, Debug)]
+#[builder(setter(strip_option, into), pattern = "owned")]
 pub struct BucketObject {
     bucket: Arc<Bucket>, // TODO: something about id?
     key: String,
@@ -117,50 +96,9 @@ pub struct BucketObject {
     content: String,
 }
 
-pub struct BucketObjectBuilder {
-    bucket: Option<Arc<Bucket>>,
-    key: Option<String>,
-    content_type: Option<String>,
-    content: Option<String>,
-}
-
 impl BucketObjectBuilder {
     pub fn new() -> Self {
-        BucketObjectBuilder {
-            bucket: None,
-            key: None,
-            content_type: None,
-            content: None,
-        }
-    }
-
-    pub fn build(self) -> BucketObject {
-        BucketObject {
-            bucket: self.bucket.unwrap(),
-            key: self.key.unwrap(),
-            content_type: self.content_type.unwrap(),
-            content: self.content.unwrap(),
-        }
-    }
-
-    pub fn bucket(mut self, bucket: Arc<Bucket>) -> Self {
-        self.bucket = Some(bucket);
-        self
-    }
-
-    pub fn key(mut self, key: impl Into<String>) -> Self {
-        self.key = Some(key.into());
-        self
-    }
-
-    pub fn content_type(mut self, content_type: impl Into<String>) -> Self {
-        self.content_type = Some(content_type.into());
-        self
-    }
-
-    pub fn content(mut self, content: impl Into<String>) -> Self {
-        self.content = Some(content.into());
-        self
+        BucketObjectBuilder::default()
     }
 }
 

@@ -21,7 +21,7 @@ pub struct AwsDetails(Arc<Inner>);
 
 impl fmt::Debug for AwsDetails {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AwsProvider")
+        f.debug_struct("AwsDetails")
             .field("region", &self.0.region)
             .field("credentials", &self.0.creds)
             .finish()
@@ -34,13 +34,14 @@ impl Clone for AwsDetails {
     }
 }
 
+#[derive(Debug)]
 pub enum Aws {}
 
 impl Cloud for Aws {
     type ProviderApi = AwsApi;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AwsApi {
     details: AwsDetails,
 }
@@ -97,12 +98,6 @@ impl AwsDetails {
 
 #[derive(Debug, Default, Clone)]
 pub struct Tags(HashMap<String, String>);
-
-impl Tags {
-    fn empty() -> Self {
-        Tags(HashMap::new())
-    }
-}
 
 #[derive(Builder, Debug, Clone)]
 #[builder(setter(strip_option, into), default)]

@@ -143,6 +143,7 @@ pub trait Cloud: Send + Sync {
     type ProviderApi: Send + Sync;
 }
 
+#[derive(Debug)]
 pub struct Provider<C: Cloud> {
     api: C::ProviderApi,
     tracked_resources: RwLock<HashMap<Address, Arc<dyn Creatable<C>>>>,
@@ -158,7 +159,7 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
-    pub fn build<F, O>(&mut self, name: &'static str, builder: F) -> Arc<O>
+    pub fn resource<F, O>(&mut self, name: &'static str, builder: F) -> Arc<O>
     where
         F: FnOnce(&mut C::ProviderApi) -> O,
         O: Creatable<C> + 'static,

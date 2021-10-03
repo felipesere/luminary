@@ -26,15 +26,16 @@ impl ModuleDefinition<Aws> for MyWebsite {
     type Outputs = MyWebsiteOutput;
 
     fn define(&self, provider: &mut Provider<Aws>) -> MyWebsiteOutput {
-        let bucket = provider.build("my-other-bucket", |api| {
+        let bucket = provider.resource("my-other-bucket", |api| {
             api.s3_bucket(self.bucket_name)
                 .website(s3::Website {
                     index_document: "index.html".into(),
                 })
                 .build()
+                .unwrap()
         });
 
-        let _object = provider.build("the-object", |api| {
+        let _object = provider.resource("the-object", |api| {
             api.s3_bucket_object()
                 // Just pass down a reference to a bucket,
                 // .bucket(&bucket)
@@ -43,6 +44,7 @@ impl ModuleDefinition<Aws> for MyWebsite {
                 .content_type("application/json")
                 .content("{\"key\": true}")
                 .build()
+                .unwrap()
         });
 
         MyWebsiteOutput { arn: bucket.arn() }
@@ -96,14 +98,14 @@ impl ModuleDefinition<Aws> for ThreeWebsites {
 
 #[tokio::main]
 pub async fn main() -> Result<(), String> {
-    let mut details = AwsDetails::from_env().map_err(|e| format!("Missing env key: {}", e))?;
+    let details = AwsDetails::from_env().map_err(|e| format!("Missing env key: {}", e))?;
 
     let api = AwsApi::new(details);
 
     let mut provider: Provider<Aws> = Provider::new(api);
 
-    provider.build("my-bucket", |api| {
-        api.s3_bucket("lonely-bucket-rs-v1").build()
+    provider.resource("my-bucket", |api| {
+        api.s3_bucket("lonely-bucket-rs-v1").build().unwrap()
     });
 
     let _x = provider.module(
@@ -120,7 +122,6 @@ pub async fn main() -> Result<(), String> {
         },
     );
 
-    // dbg!(&provider);
     // provider.create().await?;
 
     Ok(())
