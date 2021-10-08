@@ -122,7 +122,7 @@ pub async fn main() -> Result<(), String> {
         },
     );
 
-    // provider.create().await?;
+    provider.create().await?;
 
     Ok(())
 }

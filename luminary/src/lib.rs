@@ -207,6 +207,13 @@ impl<C: Cloud> Provider<C> {
             outputs,
         }
     }
+
+    pub async fn create(&self) -> Result<(), String> {
+        for (_address, resource) in self.tracked_resources.write().unwrap().iter_mut() {
+            resource.create(&self.api).await?;
+        }
+        Ok(())
+    }
 }
 
 /// The state as it is known to our Cloud providers
