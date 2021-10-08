@@ -2,6 +2,7 @@
 members = [
     "aws",
     "clutter",
+    "graphiti",
     "luminary",
     "luminary-bin",
 ]
