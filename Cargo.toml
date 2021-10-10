@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "aws",
+    "clutter",
     "luminary",
     "luminary-bin",
 ]
