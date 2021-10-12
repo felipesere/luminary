@@ -1,8 +1,19 @@
+use std::fmt::Debug;
+
 use crate::Produce;
 
 pub enum Value<T> {
     Real(T),
-    Reference(Box<dyn Produce<T>>), // still not sure about this one
+    Reference(Box<dyn Produce<T> + Send + Sync>), // still not sure about this one
+}
+
+impl<T: Debug> Debug for Value<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Real(value) => write!(f, "{:?}", value),
+            Value::Reference(_) => write!(f, "Rerference{{}}"),
+        }
+    }
 }
 
 impl<T: ?Sized + Clone> Clone for Value<T> {
@@ -17,7 +28,7 @@ impl<T: ?Sized + Clone> Clone for Value<T> {
 // Will be used for something meaningful down the line
 #[allow(dead_code)]
 impl<T: Clone + 'static> Value<T> {
-    fn get(&self) -> T {
+    pub fn get(&self) -> T {
         match self {
             Value::Real(ref s) => s.clone(),
             Value::Reference(producer) => producer.get(),
@@ -26,7 +37,7 @@ impl<T: Clone + 'static> Value<T> {
 
     fn map<F, U>(&self, transform: F) -> Value<U>
     where
-        F: 'static + Clone + Fn(T) -> U,
+        F: 'static + Clone + Send + Sync + Fn(T) -> U,
     {
         match self {
             Value::Real(real) => Value::Real(transform(real.clone())),

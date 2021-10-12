@@ -3,9 +3,17 @@ name = "luminary"
 version = "0.0.0"
 edition = "2018"
 
+[lib]
+doctest = false
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 async-trait = "^0.1"
 dyn-clone = "1.0.4"
 clutter  = { path = "../clutter" }
+
+[dev-dependencies]
+futures-test = "0.3.17"
+smol = "1.2.5"
+async-io = "1.6.0"

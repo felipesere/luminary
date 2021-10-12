@@ -82,3 +82,82 @@ impl<C: Cloud> Provider<C> {
         Ok(state)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::Value;
+    use async_trait::async_trait;
+
+    #[derive(Debug)]
+    struct FakeResource(&'static str);
+
+    impl FakeResource {
+        fn output(&self) -> Value<String> {
+            let x = self.0.clone();
+            Value::Reference(Box::new(move || x.to_string()))
+        }
+    }
+
+    #[async_trait]
+    impl Creatable<FakeCloud> for FakeResource {
+        fn kind(&self) -> &'static str {
+            "fake_resource"
+        }
+
+        async fn create(&self, provider: &FakeApi) -> Result<clutter::Fields, String> {
+            use async_io::Timer;
+            use std::time::Duration;
+
+            Timer::after(Duration::from_secs(5)).await;
+            println!("Creating resource {}", self.0);
+            Ok(clutter::Fields::empty())
+        }
+    }
+
+    #[derive(Debug)]
+    struct OtherResource {
+        name: &'static str,
+        other: Value<String>,
+    }
+
+    #[async_trait]
+    impl Creatable<FakeCloud> for OtherResource {
+        fn kind(&self) -> &'static str {
+            "other_resource"
+        }
+
+        async fn create(&self, provider: &FakeApi) -> Result<clutter::Fields, String> {
+            // TODO: consider a sleep here...
+            println!("Creating resource {} with {}", self.name, self.other.get());
+            Ok(clutter::Fields::empty())
+        }
+    }
+
+    struct FakeCloud;
+
+    struct FakeApi;
+
+    impl crate::Cloud for FakeCloud {
+        type ProviderApi = FakeApi;
+    }
+
+    #[test]
+    fn it_works() {
+        smol::block_on(async {
+            let fake_api = FakeApi;
+            let mut provider: Provider<FakeCloud> = Provider::new(fake_api);
+
+            let slow = provider.resource("the_slow_one", |_api| FakeResource("some_inner_value"));
+
+            let fast = provider.resource("the_fast_one", |_api| OtherResource {
+                name: "other_one",
+                other: slow.output(),
+            });
+
+            provider.create().await;
+
+            assert!(false);
+        })
+    }
+}
