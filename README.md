@@ -23,20 +23,6 @@ Code *structure/layout*: I want to figure out multiple-workspaces to emulate how
 *AWS SDK*: Start with Rusoto and then lean on the new SDK when it becomes available.
 
 
-## TODO:
-
-* [ ] Create a bucket from the definition
-    * [ ] Thread through credentials, probably with a "Provider"
-    * [ ] Implement some kind of trait _for S3 bucket_ so each thing can define CRUD
-* [ ] Empty state
-* [ ] Create state entry from S3
-* [ ] Refresh state
-* [ ] Diff the S3 bucket state vs code definition
-   * [ ] No changes present
-   * [ ] Changes present
-* [ ] Create an S3 object within the S3 bucket
-
-
 ## Links to Playground
 
 I am currently stuck on a structural issue.
