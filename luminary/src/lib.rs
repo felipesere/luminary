@@ -2,11 +2,13 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
+use clutter::ResourceState;
 use dyn_clone::DynClone;
 
 mod value;
 
 // Re-export
+pub use clutter::Fields;
 pub use value::Value;
 
 // Will likely need some internal mutability
@@ -17,6 +19,12 @@ pub struct System {}
 pub struct Segment {
     pub name: String,
     pub kind: String,
+}
+
+impl ToString for Segment {
+    fn to_string(&self) -> String {
+        format!("{}.{}", self.kind, self.name)
+    }
 }
 
 impl std::fmt::Debug for Segment {
@@ -42,12 +50,20 @@ impl std::fmt::Debug for Address {
     }
 }
 
+impl From<&Address> for String {
+    fn from(address: &Address) -> Self {
+        address
+            .0
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>()
+            .join("/")
+    }
+}
+
 impl Address {
     pub fn root() -> Address {
-        Address(vec![Segment {
-            kind: "".into(),
-            name: "".into(),
-        }])
+        Address(vec![])
     }
 
     pub fn child(&self, child: Segment) -> Address {
@@ -110,7 +126,7 @@ pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {}
 #[async_trait]
 pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
     fn kind(&self) -> &'static str;
-    async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<RealState, String>;
+    async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<Fields, String>;
 }
 
 #[async_trait]
@@ -127,7 +143,7 @@ where
     C: Cloud,
     T: Resource<C> + Send + Sync,
 {
-    async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<RealState, String> {
+    async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<Fields, String> {
         self.as_ref().create(provider).await
     }
 
@@ -208,18 +224,23 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
-    pub async fn create(&self) -> Result<(), String> {
-        for (_address, resource) in self.tracked_resources.write().unwrap().iter_mut() {
-            resource.create(&self.api).await?;
+    pub async fn create(&self) -> Result<RealState, String> {
+        let mut state = RealState::new();
+        for (address, resource) in self.tracked_resources.write().unwrap().iter_mut() {
+            let fields = resource.create(&self.api).await?;
+            let resource_state = ResourceState::new(address, fields);
+
+            state.add(resource_state);
         }
-        Ok(())
+
+        Ok(state)
     }
 }
 
 /// The state as it is known to our Cloud providers
 /// We get this from refreshing the resources that
 /// we see in `KnownState`.
-pub struct RealState {}
+pub type RealState = clutter::State;
 
 /// The state as it was reloaded from storage and is known to luminary.
 /// It may not be what is desired or even real, but it represents

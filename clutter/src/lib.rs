@@ -4,13 +4,39 @@ use std::collections::HashMap;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State {
     version: usize,
-    resources: Vec<Resource>,
+    resources: Vec<ResourceState>,
+}
+
+impl State {
+    pub fn new() -> Self {
+        Self {
+            version: 1,
+            resources: Vec::new(),
+        }
+    }
+
+    pub fn add(&mut self, resource: ResourceState) {
+        self.resources.push(resource);
+    }
+
+    pub fn print(&self) {
+        println!("{}", serde_json::to_string_pretty(&self).unwrap());
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Resource {
+pub struct ResourceState {
     address: String,
     fields: Fields,
+}
+
+impl ResourceState {
+    pub fn new(address: impl Into<String>, fields: Fields) -> Self {
+        Self {
+            address: address.into(),
+            fields,
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -32,37 +58,46 @@ where
 }
 
 #[derive(Debug, Eq, PartialEq)]
-struct Difference {
+pub struct Difference {
     field_name: String,
     change: Change,
 }
 
 impl Fields {
-    fn empty() -> Fields {
+    pub fn empty() -> Fields {
         Fields(HashMap::new())
     }
 
-    fn with_text(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+    pub fn with_text(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
         self.0.insert(name.into(), Field::Text(value.into()));
         self
     }
 
-    fn with_number(mut self, name: impl Into<String>, value: impl Into<i32>) -> Self {
+    pub fn with_number(mut self, name: impl Into<String>, value: impl Into<i32>) -> Self {
         self.0.insert(name.into(), Field::Number(value.into()));
         self
     }
 
-    fn with_boolean(mut self, name: impl Into<String>, value: impl Into<bool>) -> Self {
+    pub fn with_boolean(mut self, name: impl Into<String>, value: impl Into<bool>) -> Self {
         self.0.insert(name.into(), Field::Boolean(value.into()));
         self
     }
 
-    fn remove(mut self, name: impl AsRef<str>) -> Self {
+    pub fn with_object<F>(mut self, name: impl Into<String>, f: F) -> Self
+    where
+        F: Fn(Fields) -> Fields,
+    {
+        self.0
+            .insert(name.into(), Field::Object(f(Fields::empty())));
+        self
+    }
+
+    pub fn remove(mut self, name: impl AsRef<str>) -> Self {
         self.0.remove(name.as_ref());
         self
     }
 
-    fn diff(&self, other: &Fields) -> Vec<Difference> {
+    pub fn diff(&self, other: &Fields) -> Vec<Difference> {
         let our_keys: Vec<_> = self.0.keys().collect();
         let mut other_keys: Vec<_> = other.0.keys().collect();
 
@@ -108,7 +143,7 @@ impl Fields {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-struct Fields(HashMap<String, Field>);
+pub struct Fields(HashMap<String, Field>);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(untagged)]

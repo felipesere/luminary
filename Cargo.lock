@@ -607,6 +607,7 @@ name = "luminary"
 version = "0.0.0"
 dependencies = [
  "async-trait",
+ "clutter",
  "dyn-clone",
 ]
 

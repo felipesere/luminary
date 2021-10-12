@@ -3,7 +3,7 @@ use crate::{Arn, ArnBuilder, Aws, AwsApi, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{Creatable, RealState, Resource, Value};
+use luminary::{Creatable, Fields, Resource, Value};
 
 use std::default::Default;
 use std::rc::Rc;
@@ -42,14 +42,25 @@ impl Resource<Aws> for Bucket {}
 
 #[async_trait]
 impl Creatable<Aws> for Bucket {
-    async fn create(&self, provider: &AwsApi) -> Result<RealState, String> {
+    async fn create(&self, provider: &AwsApi) -> Result<Fields, String> {
         let config = provider.details.config();
         let client = Client::from_conf(config);
 
-        let request = client.create_bucket().bucket(self.name.clone());
+        let request = client.create_bucket().bucket(&self.name);
+        println!("creating {}", self.name);
         let response = request.send().await.map_err(|e| e.to_string())?;
+        println!("created {}", self.name);
         dbg!(response);
-        Ok(RealState {})
+
+        let mut fields = Fields::empty().with_text("id", self.name.clone());
+
+        if let Some(website) = &self.website {
+            fields = fields.with_object("website", |o| {
+                o.with_text("index_document", &website.index_document)
+            });
+        }
+
+        Ok(fields)
     }
 
     fn kind(&self) -> &'static str {
@@ -106,7 +117,7 @@ impl Resource<Aws> for BucketObject {}
 
 #[async_trait]
 impl Creatable<Aws> for BucketObject {
-    async fn create(&self, provider: &AwsApi) -> Result<RealState, String> {
+    async fn create(&self, provider: &AwsApi) -> Result<Fields, String> {
         let config = provider.details.config();
         let client = Client::from_conf(config);
 
@@ -116,11 +127,13 @@ impl Creatable<Aws> for BucketObject {
             .key(&self.key)
             .content_type(&self.content_type)
             .body(ByteStream::from(self.content.clone().into_bytes()));
+
+        println!("Creating object for {}/{}", &self.bucket.name, &self.key);
         let response = request.send().await.map_err(|e| e.to_string())?;
 
         dbg!(response);
 
-        Ok(RealState {})
+        Ok(Fields::empty())
     }
 
     fn kind(&self) -> &'static str {

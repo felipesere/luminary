@@ -104,25 +104,31 @@ pub async fn main() -> Result<(), String> {
 
     let mut provider: Provider<Aws> = Provider::new(api);
 
+    /*
     provider.resource("my-bucket", |api| {
         api.s3_bucket("lonely-bucket-rs-v1").build().unwrap()
     });
+    */
 
     let _x = provider.module(
         "my-fancy-module",
         MyWebsite {
-            bucket_name: "my-bucket-name",
+            bucket_name: "luminary-rs-module-1",
         },
     );
 
+    /*
     let _three_sites = provider.module(
         "three-websites",
         ThreeWebsites {
             sites: ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"),
         },
     );
+    */
 
-    provider.create().await?;
+    let state = provider.create().await?;
+
+    state.print();
 
     Ok(())
 }
