@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 
@@ -119,7 +121,13 @@ where
 }
 
 #[async_trait]
-pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {}
+pub trait Resource<C: Cloud>: Creatable<C> + Dependenable + std::fmt::Debug + Send + Sync {}
+
+pub struct Dependent;
+
+pub trait Dependenable {
+    fn depends_on<const N: usize>(&self, other: [&dyn AsRef<Dependent>; N]) {}
+}
 
 #[async_trait]
 pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
@@ -128,15 +136,26 @@ pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
 }
 
 #[async_trait]
-impl<T, C> Resource<C> for std::sync::Arc<T>
+impl<T, C> Resource<C> for Arc<T>
 where
     C: Cloud,
     T: Resource<C> + Send + Sync,
 {
 }
 
+impl<T> Dependenable for Arc<T> {}
+
+impl<D> AsRef<Dependent> for Arc<D>
+where
+    D: AsRef<Dependent>,
+{
+    fn as_ref(&self) -> &Dependent {
+        self.as_ref()
+    }
+}
+
 #[async_trait]
-impl<T, C> Creatable<C> for std::sync::Arc<T>
+impl<T, C> Creatable<C> for Arc<T>
 where
     C: Cloud,
     T: Resource<C> + Send + Sync,

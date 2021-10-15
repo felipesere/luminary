@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use clutter::ResourceState;
 
-use crate::{Address, Cloud, Creatable, Module, ModuleDefinition, RealState, Segment};
+use crate::{Address, Cloud, Creatable, Module, ModuleDefinition, RealState, Resource, Segment};
 
 #[derive(Debug)]
 pub struct Provider<C: Cloud> {
@@ -24,7 +24,7 @@ impl<C: Cloud> Provider<C> {
     pub fn resource<F, O>(&mut self, name: &'static str, builder: F) -> Arc<O>
     where
         F: FnOnce(&mut C::ProviderApi) -> O,
-        O: Creatable<C> + 'static,
+        O: Resource<C> + 'static,
     {
         let object = builder(&mut self.api);
         let address = Segment {
@@ -83,21 +83,37 @@ impl<C: Cloud> Provider<C> {
     }
 }
 
+#[derive(Debug)]
+struct Anchor {
+    idx: smol_graph::NodeIndex,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::Value;
+    use crate::{Dependenable, Dependent, Value};
     use async_trait::async_trait;
 
     #[derive(Debug)]
-    struct FakeResource(&'static str);
+    struct FakeResource(i32);
 
-    impl FakeResource {
-        fn output(&self) -> Value<String> {
-            let x = self.0.clone();
-            Value::Reference(Box::new(move || x.to_string()))
+    impl AsRef<Dependent> for FakeResource {
+        fn as_ref(&self) -> &Dependent {
+            &Dependent
         }
     }
+
+    impl FakeResource {
+        fn output(&self) -> Value<i32> {
+            let other = self.0.clone();
+            Value::Reference(Box::new(move || other))
+        }
+    }
+
+    #[async_trait]
+    impl Resource<FakeCloud> for FakeResource {}
+
+    impl Dependenable for FakeResource {}
 
     #[async_trait]
     impl Creatable<FakeCloud> for FakeResource {
@@ -118,8 +134,13 @@ mod test {
     #[derive(Debug)]
     struct OtherResource {
         name: &'static str,
-        other: Value<String>,
+        other: Value<i32>,
     }
+
+    #[async_trait]
+    impl Resource<FakeCloud> for OtherResource {}
+
+    impl Dependenable for OtherResource {}
 
     #[async_trait]
     impl Creatable<FakeCloud> for OtherResource {
@@ -143,17 +164,18 @@ mod test {
     }
 
     #[test]
-    fn it_works() {
+    fn broad_idea_of_interdependencies() {
         smol::block_on(async {
-            let fake_api = FakeApi;
-            let mut provider: Provider<FakeCloud> = Provider::new(fake_api);
+            let mut provider: Provider<FakeCloud> = Provider::new(FakeApi);
 
-            let slow = provider.resource("the_slow_one", |_api| FakeResource("some_inner_value"));
+            let slow = provider.resource("the_slow_one", |_api| FakeResource(23));
 
-            let fast = provider.resource("the_fast_one", |_api| OtherResource {
-                name: "other_one",
-                other: slow.output(),
-            });
+            let fast = provider
+                .resource("the_fast_one", |_api| OtherResource {
+                    name: "other_one",
+                    other: slow.output(),
+                })
+                .depends_on([&slow]);
 
             provider.create().await;
 

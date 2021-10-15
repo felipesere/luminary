@@ -3,7 +3,7 @@ use crate::{Arn, ArnBuilder, Aws, AwsApi, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{Creatable, Fields, Resource, Value};
+use luminary::{Creatable, Dependenable, Fields, Resource, Value};
 
 use std::default::Default;
 use std::rc::Rc;
@@ -39,6 +39,8 @@ impl BucketBuilder {
     }
 }
 impl Resource<Aws> for Bucket {}
+
+impl Dependenable for Bucket {}
 
 #[async_trait]
 impl Creatable<Aws> for Bucket {
@@ -81,12 +83,14 @@ impl Bucket {
     // This one is a bit contrived:
     // We know from `arn` that we can construct the arn just fine...
     // The only "point" might be that "name" itself could be a `Value<T>`?
+    /*
     pub fn arn2(&self) -> Value<Arn<Bucket>> {
         // Would this be better if it was an RC?
         // Is there something that lives "long enough" that I could borrow from?
         let x = self.clone();
-        Value::Reference(Box::new(move || x.arn()))
+        Value::Tracked(Box::new(move || x.arn()))
     }
+    */
 
     pub fn name(&self) -> Value<String> {
         Value::Real(self.name.clone())
@@ -114,6 +118,8 @@ impl BucketObjectBuilder {
 }
 
 impl Resource<Aws> for BucketObject {}
+
+impl Dependenable for BucketObject {}
 
 #[async_trait]
 impl Creatable<Aws> for BucketObject {
