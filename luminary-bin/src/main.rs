@@ -10,8 +10,7 @@ use luminary::Provider;
 use luminary::ModuleDefinition;
 
 use petgraph::visit::Dfs;
-use petgraph::{dot::Dot, Graph};
-use petgraph::visit::DfsPostOrder;
+use petgraph::Graph;
 
 #[derive(Debug)]
 struct MyWebsite {
@@ -118,7 +117,7 @@ pub async fn main() -> Result<(), String> {
             bucket_name: "luminary-rs-module-1",
         },
     );
-    b.depends_on(&mut provider.dependency_graph.write().unwrap(), [&x]);
+    b.depends_on(&mut provider.dependency_graph, [&x]);
 
     /*
     let _three_sites = provider.module(
@@ -133,11 +132,13 @@ pub async fn main() -> Result<(), String> {
 
     // state.print();
 
-    let deps: Graph<Address, DependencyKind> = provider.dependency_graph.into_inner().unwrap();
+    let deps: Graph<Address, DependencyKind> = provider.dependency_graph;
 
     let root_address = Address::root();
-    let root = deps.node_indices().find(|i| deps[*i] == root_address).unwrap();
-
+    let root = deps
+        .node_indices()
+        .find(|i| deps[*i] == root_address)
+        .unwrap();
 
     let mut dfs = Dfs::new(&deps, root);
 

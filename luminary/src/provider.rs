@@ -13,7 +13,7 @@ pub struct Provider<C: Cloud> {
     tracked_resources: RwLock<HashMap<Address, Arc<dyn Creatable<C>>>>,
     current_address: RwLock<Address>,
     // TODO: Could this just be a segment?
-    pub dependency_graph: RwLock<Graph<Address, DependencyKind>>,
+    pub dependency_graph: Graph<Address, DependencyKind>,
     pub root_idx: RwLock<NodeIndex>,
 }
 
@@ -92,7 +92,7 @@ impl<C: Cloud> Provider<C> {
             api,
             tracked_resources: Default::default(),
             current_address: RwLock::new(root),
-            dependency_graph: RwLock::new(deps),
+            dependency_graph: deps,
             root_idx: RwLock::new(root_idx),
         }
     }
@@ -114,14 +114,11 @@ impl<C: Cloud> Provider<C> {
 
         self.track(real.clone(), Arc::clone(&wrapped) as Arc<dyn Creatable<C>>);
 
-        let node_idx = self.dependency_graph.write().unwrap().add_node(real);
+        let node_idx = self.dependency_graph.add_node(real);
 
         let root_idx = self.root_idx.read().unwrap().clone();
-        self.dependency_graph.write().unwrap().add_edge(
-            root_idx,
-            node_idx,
-            DependencyKind::Resource,
-        );
+        self.dependency_graph
+            .add_edge(root_idx, node_idx, DependencyKind::Resource);
 
         let anchor = Anchor::new(node_idx);
 
@@ -157,14 +154,8 @@ impl<C: Cloud> Provider<C> {
 
         // TODO: Very likely I will have to update `self` to use the thix idx as its root
         // so that children of this module are attached correctly?
-        let idx = self
-            .dependency_graph
-            .write()
-            .unwrap()
-            .add_node(module_address.clone());
+        let idx = self.dependency_graph.add_node(module_address.clone());
         self.dependency_graph
-            .write()
-            .unwrap()
             .add_edge(current_idx, idx, DependencyKind::Module);
 
         *self.root_idx.write().unwrap() = idx;
@@ -285,9 +276,12 @@ mod test {
                     name: "other_one",
                     other: slow.output(),
                 })
-                .depends_on(&mut provider.dependency_graph.write().unwrap(), [&slow]);
+                .depends_on(&mut provider.dependency_graph, [&slow]);
 
-            provider.create().await.expect("should have been able to create resources from the provider");
+            provider
+                .create()
+                .await
+                .expect("should have been able to create resources from the provider");
 
             assert!(false);
         })
