@@ -123,11 +123,11 @@ pub async fn main() -> Result<(), String> {
     );
     */
 
-    dbg!(&provider.dependency_graph.read().unwrap());
-
     let state = provider.create().await?;
 
-    state.print();
+    // state.print();
+
+    dbg!(&provider.dependency_graph.read().unwrap());
 
     Ok(())
 }

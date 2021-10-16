@@ -101,6 +101,12 @@ impl<C: Cloud> Provider<C> {
 
         let node_idx = self.dependency_graph.write().unwrap().node(real);
 
+        let root_idx = self.root_idx.read().unwrap().clone();
+        self.dependency_graph
+            .write()
+            .unwrap()
+            .edge(Edge::new((root_idx, node_idx), ()));
+
         let anchor = Anchor::new(node_idx);
 
         Meta {
@@ -124,6 +130,8 @@ impl<C: Cloud> Provider<C> {
         MD: ModuleDefinition<C>,
     {
         let current_address = self.current_address.read().unwrap().clone();
+        let current_idx = self.root_idx.read().unwrap().clone();
+
         let module_segment = Segment {
             kind: "module".into(),
             name: module_name.into(),
@@ -138,18 +146,19 @@ impl<C: Cloud> Provider<C> {
             .write()
             .unwrap()
             .node(module_address.clone());
-        let anchor = Anchor::new(idx);
+        *self.root_idx.write().unwrap() = idx;
 
         let outputs = definition.define(self);
 
         *self.current_address.write().unwrap() = current_address;
+        *self.root_idx.write().unwrap() = current_idx;
 
         Meta {
             inner: Arc::new(Module {
                 name: module_name,
                 outputs,
             }),
-            anchor,
+            anchor: Anchor::new(idx),
         }
     }
 
