@@ -14,7 +14,7 @@ pub struct Provider<C: Cloud> {
     current_address: RwLock<Address>,
     // TODO: Could this just be a segment?
     pub dependency_graph: Graph<Address, DependencyKind>,
-    pub root_idx: RwLock<NodeIndex>,
+    pub root_idx: NodeIndex,
 }
 
 #[derive(Debug)]
@@ -85,15 +85,15 @@ impl<R> Clone for Meta<R> {
 impl<C: Cloud> Provider<C> {
     pub fn new(api: C::ProviderApi) -> Self {
         let root = Address::root();
-        let mut deps = Graph::new();
+        let mut dependency_graph = Graph::new();
 
-        let root_idx = deps.add_node(root.clone());
+        let root_idx = dependency_graph.add_node(root.clone());
         Self {
             api,
             tracked_resources: Default::default(),
             current_address: RwLock::new(root),
-            dependency_graph: deps,
-            root_idx: RwLock::new(root_idx),
+            dependency_graph,
+            root_idx,
         }
     }
 
@@ -116,7 +116,7 @@ impl<C: Cloud> Provider<C> {
 
         let node_idx = self.dependency_graph.add_node(real);
 
-        let root_idx = self.root_idx.read().unwrap().clone();
+        let root_idx = self.root_idx.clone();
         self.dependency_graph
             .add_edge(root_idx, node_idx, DependencyKind::Resource);
 
@@ -143,7 +143,7 @@ impl<C: Cloud> Provider<C> {
         MD: ModuleDefinition<C>,
     {
         let current_address = self.current_address.read().unwrap().clone();
-        let current_idx = self.root_idx.read().unwrap().clone();
+        let current_idx = self.root_idx.clone();
 
         let module_segment = Segment {
             kind: "module".into(),
@@ -158,12 +158,12 @@ impl<C: Cloud> Provider<C> {
         self.dependency_graph
             .add_edge(current_idx, idx, DependencyKind::Module);
 
-        *self.root_idx.write().unwrap() = idx;
+        self.root_idx = idx;
 
         let outputs = definition.define(self);
 
         *self.current_address.write().unwrap() = current_address;
-        *self.root_idx.write().unwrap() = current_idx;
+        self.root_idx = current_idx;
 
         Meta {
             inner: Arc::new(Module {
