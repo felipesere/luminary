@@ -12,6 +12,46 @@ pub struct Provider<C: Cloud> {
     current_address: RwLock<Address>,
 }
 
+pub type Dependent = smol_graph::NodeIndex;
+
+pub struct Meta<R> {
+    inner: Arc<R>,
+    anchor: Anchor,
+}
+
+impl<R> Meta<R> {
+    fn new(object: Arc<R>, address: Address) -> Self {
+        Meta {
+            inner: object,
+            anchor: Anchor::new(address),
+        }
+    }
+    pub fn depends_on<const N: usize>(&self, other: [&dyn AsRef<Dependent>; N]) {}
+}
+
+impl<R> std::ops::Deref for Meta<R> {
+    type Target = R;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<R> AsRef<Dependent> for Meta<R> {
+    fn as_ref(&self) -> &Dependent {
+        &self.anchor.idx
+    }
+}
+
+impl<R> Clone for Meta<R> {
+    fn clone(&self) -> Self {
+        Meta {
+            inner: Arc::clone(&self.inner),
+            anchor: self.anchor.clone(),
+        }
+    }
+}
+
 impl<C: Cloud> Provider<C> {
     pub fn new(api: C::ProviderApi) -> Self {
         Self {
@@ -21,26 +61,32 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
-    pub fn resource<F, O>(&mut self, name: &'static str, builder: F) -> Arc<O>
+    pub fn resource<F, O>(&mut self, name: &'static str, builder: F) -> Meta<O>
     where
         F: FnOnce(&mut C::ProviderApi) -> O,
         O: Resource<C> + 'static,
     {
         let object = builder(&mut self.api);
-        let address = Segment {
+        let object_segment = Segment {
             name: name.to_string(),
             kind: object.kind().to_string(),
         };
 
         let wrapped = Arc::new(object);
 
-        self.track(address, Arc::clone(&wrapped) as Arc<dyn Creatable<C>>);
+        let real = self.current_address.read().unwrap().child(object_segment);
 
-        wrapped
+        self.track(real.clone(), Arc::clone(&wrapped) as Arc<dyn Creatable<C>>);
+
+        let anchor = Anchor::new(real);
+
+        Meta {
+            inner: wrapped,
+            anchor,
+        }
     }
 
-    pub fn track(&mut self, relative_address: Segment, resource: Arc<dyn Creatable<C>>) {
-        let real = self.current_address.read().unwrap().child(relative_address);
+    pub fn track(&mut self, real: Address, resource: Arc<dyn Creatable<C>>) {
         println!("Tracking {:?}", real);
 
         self.tracked_resources
@@ -49,32 +95,36 @@ impl<C: Cloud> Provider<C> {
             .insert(real, resource);
     }
 
-    pub fn module<MD>(&mut self, module_name: &'static str, definition: MD) -> Module<MD, C>
+    pub fn module<MD>(&mut self, module_name: &'static str, definition: MD) -> Meta<Module<MD, C>>
     where
         MD: ModuleDefinition<C>,
     {
         let current_address = self.current_address.read().unwrap().clone();
-        let module_address = current_address.child(Segment {
+        let module_segment = Segment {
             kind: "module".into(),
             name: module_name.into(),
-        });
-        *self.current_address.write().unwrap() = module_address;
+        };
+        let module_address = current_address.child(module_segment.clone());
+        *self.current_address.write().unwrap() = module_address.clone();
 
         let outputs = definition.define(self);
 
         *self.current_address.write().unwrap() = current_address;
 
-        Module {
-            name: module_name,
-            outputs,
+        Meta {
+            inner: Arc::new(Module {
+                name: module_name,
+                outputs,
+            }),
+            anchor: Anchor::new(module_address),
         }
     }
 
     pub async fn create(&self) -> Result<RealState, String> {
         let mut state = RealState::new();
-        for (address, resource) in self.tracked_resources.write().unwrap().iter_mut() {
+        for (object_segment, resource) in self.tracked_resources.write().unwrap().iter_mut() {
             let fields = resource.create(&self.api).await?;
-            let resource_state = ResourceState::new(address, fields);
+            let resource_state = ResourceState::new(object_segment, fields);
 
             state.add(resource_state);
         }
@@ -83,25 +133,27 @@ impl<C: Cloud> Provider<C> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Anchor {
     idx: smol_graph::NodeIndex,
+}
+
+// TODO not really sure how this will work
+impl Anchor {
+    fn new(_address: Address) -> Self {
+        let idx = smol_graph::NodeIndex::new();
+        Anchor { idx }
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{Dependenable, Dependent, Value};
+    use crate::Value;
     use async_trait::async_trait;
 
     #[derive(Debug)]
     struct FakeResource(i32);
-
-    impl AsRef<Dependent> for FakeResource {
-        fn as_ref(&self) -> &Dependent {
-            &Dependent
-        }
-    }
 
     impl FakeResource {
         fn output(&self) -> Value<i32> {
@@ -112,8 +164,6 @@ mod test {
 
     #[async_trait]
     impl Resource<FakeCloud> for FakeResource {}
-
-    impl Dependenable for FakeResource {}
 
     #[async_trait]
     impl Creatable<FakeCloud> for FakeResource {
@@ -139,8 +189,6 @@ mod test {
 
     #[async_trait]
     impl Resource<FakeCloud> for OtherResource {}
-
-    impl Dependenable for OtherResource {}
 
     #[async_trait]
     impl Creatable<FakeCloud> for OtherResource {

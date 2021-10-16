@@ -3,11 +3,10 @@ use crate::{Arn, ArnBuilder, Aws, AwsApi, Tags};
 use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
-use luminary::{Creatable, Dependenable, Fields, Resource, Value};
+use luminary::{Creatable, Fields, Resource, Value};
 
 use std::default::Default;
 use std::rc::Rc;
-use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum Acl {
@@ -39,8 +38,6 @@ impl BucketBuilder {
     }
 }
 impl Resource<Aws> for Bucket {}
-
-impl Dependenable for Bucket {}
 
 #[async_trait]
 impl Creatable<Aws> for Bucket {
@@ -80,18 +77,6 @@ impl Bucket {
             .unwrap()
     }
 
-    // This one is a bit contrived:
-    // We know from `arn` that we can construct the arn just fine...
-    // The only "point" might be that "name" itself could be a `Value<T>`?
-    /*
-    pub fn arn2(&self) -> Value<Arn<Bucket>> {
-        // Would this be better if it was an RC?
-        // Is there something that lives "long enough" that I could borrow from?
-        let x = self.clone();
-        Value::Tracked(Box::new(move || x.arn()))
-    }
-    */
-
     pub fn name(&self) -> Value<String> {
         Value::Real(self.name.clone())
     }
@@ -105,7 +90,7 @@ pub struct Website {
 #[derive(Builder, Clone, Debug)]
 #[builder(setter(strip_option, into), pattern = "owned")]
 pub struct BucketObject {
-    bucket: Arc<Bucket>, // TODO: something about id?
+    bucket: Value<String>,
     key: String,
     content_type: String,
     content: String,
@@ -119,22 +104,22 @@ impl BucketObjectBuilder {
 
 impl Resource<Aws> for BucketObject {}
 
-impl Dependenable for BucketObject {}
-
 #[async_trait]
 impl Creatable<Aws> for BucketObject {
     async fn create(&self, provider: &AwsApi) -> Result<Fields, String> {
         let config = provider.details.config();
         let client = Client::from_conf(config);
 
+        let bucket_name = self.bucket.get();
+
         let request = client
             .put_object()
-            .bucket(&self.bucket.name)
+            .bucket(&bucket_name)
             .key(&self.key)
             .content_type(&self.content_type)
             .body(ByteStream::from(self.content.clone().into_bytes()));
 
-        println!("Creating object for {}/{}", &self.bucket.name, &self.key);
+        println!("Creating object for {}/{}", &bucket_name, &self.key);
         let response = request.send().await.map_err(|e| e.to_string())?;
 
         dbg!(response);

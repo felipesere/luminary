@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 
@@ -121,52 +119,12 @@ where
 }
 
 #[async_trait]
-pub trait Resource<C: Cloud>: Creatable<C> + Dependenable + std::fmt::Debug + Send + Sync {}
-
-pub struct Dependent;
-
-pub trait Dependenable {
-    fn depends_on<const N: usize>(&self, other: [&dyn AsRef<Dependent>; N]) {}
-}
+pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {}
 
 #[async_trait]
 pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
     fn kind(&self) -> &'static str;
     async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<Fields, String>;
-}
-
-#[async_trait]
-impl<T, C> Resource<C> for Arc<T>
-where
-    C: Cloud,
-    T: Resource<C> + Send + Sync,
-{
-}
-
-impl<T> Dependenable for Arc<T> {}
-
-impl<D> AsRef<Dependent> for Arc<D>
-where
-    D: AsRef<Dependent>,
-{
-    fn as_ref(&self) -> &Dependent {
-        self.as_ref()
-    }
-}
-
-#[async_trait]
-impl<T, C> Creatable<C> for Arc<T>
-where
-    C: Cloud,
-    T: Resource<C> + Send + Sync,
-{
-    async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<Fields, String> {
-        self.as_ref().create(provider).await
-    }
-
-    fn kind(&self) -> &'static str {
-        self.as_ref().kind()
-    }
 }
 
 /// A very intersting trait that configures

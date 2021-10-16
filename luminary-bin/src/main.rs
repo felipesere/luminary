@@ -5,8 +5,6 @@ use aws::AwsApi;
 use aws::AwsDetails;
 use luminary::Provider;
 
-use std::sync::Arc;
-
 use luminary::ModuleDefinition;
 
 #[derive(Debug)]
@@ -39,7 +37,7 @@ impl ModuleDefinition<Aws> for MyWebsite {
             api.s3_bucket_object()
                 // Just pass down a reference to a bucket,
                 // .bucket(&bucket)
-                .bucket(Arc::clone(&bucket))
+                .bucket(bucket.name())
                 .key("f.json")
                 .content_type("application/json")
                 .content("{\"key\": true}")
@@ -104,18 +102,18 @@ pub async fn main() -> Result<(), String> {
 
     let mut provider: Provider<Aws> = Provider::new(api);
 
-    /*
-    provider.resource("my-bucket", |api| {
+    let b = provider.resource("my-bucket", |api| {
         api.s3_bucket("lonely-bucket-rs-v1").build().unwrap()
     });
-    */
 
-    let _x = provider.module(
+    let x = provider.module(
         "my-fancy-module",
         MyWebsite {
             bucket_name: "luminary-rs-module-1",
         },
     );
+
+    b.depends_on([&x]);
 
     /*
     let _three_sites = provider.module(
