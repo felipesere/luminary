@@ -11,7 +11,7 @@ use petgraph::{graph::NodeIndex, Graph};
 pub struct Provider<C: Cloud> {
     api: C::ProviderApi,
     tracked_resources: RwLock<HashMap<Address, Arc<dyn Creatable<C>>>>,
-    current_address: RwLock<Address>,
+    current_address: Address,
     // TODO: Could this just be a segment?
     pub dependency_graph: Graph<Address, DependencyKind>,
     pub root_idx: NodeIndex,
@@ -91,7 +91,7 @@ impl<C: Cloud> Provider<C> {
         Self {
             api,
             tracked_resources: Default::default(),
-            current_address: RwLock::new(root),
+            current_address: root,
             dependency_graph,
             root_idx,
         }
@@ -110,7 +110,7 @@ impl<C: Cloud> Provider<C> {
 
         let wrapped = Arc::new(object);
 
-        let real = self.current_address.read().unwrap().child(object_segment);
+        let real = self.current_address.child(object_segment);
 
         self.track(real.clone(), Arc::clone(&wrapped) as Arc<dyn Creatable<C>>);
 
@@ -142,7 +142,7 @@ impl<C: Cloud> Provider<C> {
     where
         MD: ModuleDefinition<C>,
     {
-        let current_address = self.current_address.read().unwrap().clone();
+        let current_address = self.current_address.clone();
         let current_idx = self.root_idx.clone();
 
         let module_segment = Segment {
@@ -150,7 +150,7 @@ impl<C: Cloud> Provider<C> {
             name: module_name.into(),
         };
         let module_address = current_address.child(module_segment.clone());
-        *self.current_address.write().unwrap() = module_address.clone();
+        self.current_address = module_address.clone();
 
         // TODO: Very likely I will have to update `self` to use the thix idx as its root
         // so that children of this module are attached correctly?
@@ -162,7 +162,7 @@ impl<C: Cloud> Provider<C> {
 
         let outputs = definition.define(self);
 
-        *self.current_address.write().unwrap() = current_address;
+        self.current_address = current_address;
         self.root_idx = current_idx;
 
         Meta {
