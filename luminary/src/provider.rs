@@ -13,8 +13,23 @@ pub struct Provider<C: Cloud> {
     tracked_resources: RwLock<HashMap<Address, Arc<dyn Creatable<C>>>>,
     current_address: RwLock<Address>,
     // TODO: Could this just be a segment?
-    pub dependency_graph: RwLock<Graph<Address, ()>>,
+    pub dependency_graph: RwLock<Graph<Address, DependencyKind>>,
     pub root_idx: RwLock<NodeIndex>,
+}
+
+#[derive(Debug)]
+pub enum DependencyKind {
+    Resource,
+    Module,
+}
+
+impl std::fmt::Display for DependencyKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DependencyKind::Resource => write!(f, "resource"),
+            DependencyKind::Module => write!(f, "module"),
+        }
+    }
 }
 
 pub type Dependent = NodeIndex;
@@ -33,13 +48,13 @@ impl<R> Meta<R> {
     }
     pub fn depends_on<const N: usize>(
         &self,
-        graph: &mut Graph<Address, ()>,
+        graph: &mut Graph<Address, DependencyKind>,
         other: [&dyn AsRef<Dependent>; N],
     ) {
         // TODO: how do I get this?!
         for dependant in other {
             let node_idx = dependant.as_ref();
-            graph.add_edge(self.anchor.idx, *node_idx, ());
+            graph.add_edge(self.anchor.idx, *node_idx, DependencyKind::Resource);
         }
     }
 }
@@ -102,10 +117,11 @@ impl<C: Cloud> Provider<C> {
         let node_idx = self.dependency_graph.write().unwrap().add_node(real);
 
         let root_idx = self.root_idx.read().unwrap().clone();
-        self.dependency_graph
-            .write()
-            .unwrap()
-            .add_edge(root_idx, node_idx, ());
+        self.dependency_graph.write().unwrap().add_edge(
+            root_idx,
+            node_idx,
+            DependencyKind::Resource,
+        );
 
         let anchor = Anchor::new(node_idx);
 
@@ -149,7 +165,7 @@ impl<C: Cloud> Provider<C> {
         self.dependency_graph
             .write()
             .unwrap()
-            .add_edge(current_idx, idx, ());
+            .add_edge(current_idx, idx, DependencyKind::Module);
 
         *self.root_idx.write().unwrap() = idx;
 

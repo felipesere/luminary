@@ -6,6 +6,7 @@ mod value;
 
 // Re-export
 pub use clutter::Fields;
+pub use provider::DependencyKind;
 pub use provider::Provider;
 pub use value::Value;
 
@@ -34,6 +35,12 @@ impl std::fmt::Debug for Segment {
 // The address of an object in Luminary
 #[derive(Hash, PartialEq, Eq, Clone)]
 pub struct Address(Vec<Segment>);
+
+impl std::fmt::Display for Address {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 impl std::fmt::Debug for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

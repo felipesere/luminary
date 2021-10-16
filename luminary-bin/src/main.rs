@@ -3,9 +3,13 @@ use aws::Arn;
 use aws::Aws;
 use aws::AwsApi;
 use aws::AwsDetails;
+use luminary::Address;
+use luminary::DependencyKind;
 use luminary::Provider;
 
 use luminary::ModuleDefinition;
+
+use petgraph::{dot::Dot, Graph};
 
 #[derive(Debug)]
 struct MyWebsite {
@@ -127,7 +131,9 @@ pub async fn main() -> Result<(), String> {
 
     // state.print();
 
-    dbg!(&provider.dependency_graph.read().unwrap());
+    let deps: Graph<Address, DependencyKind> = provider.dependency_graph.into_inner().unwrap();
+
+    println!("{}", Dot::new(&deps));
 
     Ok(())
 }
