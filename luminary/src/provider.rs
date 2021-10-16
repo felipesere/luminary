@@ -5,11 +5,16 @@ use clutter::ResourceState;
 
 use crate::{Address, Cloud, Creatable, Module, ModuleDefinition, RealState, Resource, Segment};
 
+use smol_graph::{Edge, Graph, NodeIndex};
+
 #[derive(Debug)]
 pub struct Provider<C: Cloud> {
     api: C::ProviderApi,
     tracked_resources: RwLock<HashMap<Address, Arc<dyn Creatable<C>>>>,
     current_address: RwLock<Address>,
+    // TODO: Could this just be a segment?
+    pub dependency_graph: RwLock<Graph<Address, ()>>,
+    pub root_idx: RwLock<NodeIndex>,
 }
 
 pub type Dependent = smol_graph::NodeIndex;
@@ -20,13 +25,23 @@ pub struct Meta<R> {
 }
 
 impl<R> Meta<R> {
-    fn new(object: Arc<R>, address: Address) -> Self {
+    fn new(object: Arc<R>, address: NodeIndex) -> Self {
         Meta {
             inner: object,
             anchor: Anchor::new(address),
         }
     }
-    pub fn depends_on<const N: usize>(&self, other: [&dyn AsRef<Dependent>; N]) {}
+    pub fn depends_on<const N: usize>(
+        &self,
+        graph: &mut Graph<Address, ()>,
+        other: [&dyn AsRef<Dependent>; N],
+    ) {
+        // TODO: how do I get this?!
+        for dependant in other {
+            let node_idx = dependant.as_ref();
+            graph.edge(Edge::new((self.anchor.idx, *node_idx), ()));
+        }
+    }
 }
 
 impl<R> std::ops::Deref for Meta<R> {
@@ -54,10 +69,16 @@ impl<R> Clone for Meta<R> {
 
 impl<C: Cloud> Provider<C> {
     pub fn new(api: C::ProviderApi) -> Self {
+        let root = Address::root();
+        let mut deps = Graph::new();
+
+        let root_idx = deps.node(root.clone());
         Self {
             api,
             tracked_resources: Default::default(),
-            current_address: RwLock::new(Address::root()),
+            current_address: RwLock::new(root),
+            dependency_graph: RwLock::new(deps),
+            root_idx: RwLock::new(root_idx),
         }
     }
 
@@ -78,7 +99,9 @@ impl<C: Cloud> Provider<C> {
 
         self.track(real.clone(), Arc::clone(&wrapped) as Arc<dyn Creatable<C>>);
 
-        let anchor = Anchor::new(real);
+        let node_idx = self.dependency_graph.write().unwrap().node(real);
+
+        let anchor = Anchor::new(node_idx);
 
         Meta {
             inner: wrapped,
@@ -86,6 +109,7 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
+    // TODO: This will likely go away at some point
     pub fn track(&mut self, real: Address, resource: Arc<dyn Creatable<C>>) {
         println!("Tracking {:?}", real);
 
@@ -107,6 +131,15 @@ impl<C: Cloud> Provider<C> {
         let module_address = current_address.child(module_segment.clone());
         *self.current_address.write().unwrap() = module_address.clone();
 
+        // TODO: Very likely I will have to update `self` to use the thix idx as its root
+        // so that children of this module are attached correctly?
+        let idx = self
+            .dependency_graph
+            .write()
+            .unwrap()
+            .node(module_address.clone());
+        let anchor = Anchor::new(idx);
+
         let outputs = definition.define(self);
 
         *self.current_address.write().unwrap() = current_address;
@@ -116,7 +149,7 @@ impl<C: Cloud> Provider<C> {
                 name: module_name,
                 outputs,
             }),
-            anchor: Anchor::new(module_address),
+            anchor,
         }
     }
 
@@ -140,8 +173,7 @@ struct Anchor {
 
 // TODO not really sure how this will work
 impl Anchor {
-    fn new(_address: Address) -> Self {
-        let idx = smol_graph::NodeIndex::new();
+    fn new(idx: NodeIndex) -> Self {
         Anchor { idx }
     }
 }
@@ -223,7 +255,7 @@ mod test {
                     name: "other_one",
                     other: slow.output(),
                 })
-                .depends_on([&slow]);
+                .depends_on(&mut provider.dependency_graph.write().unwrap(), [&slow]);
 
             provider.create().await;
 

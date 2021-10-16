@@ -112,8 +112,7 @@ pub async fn main() -> Result<(), String> {
             bucket_name: "luminary-rs-module-1",
         },
     );
-
-    b.depends_on([&x]);
+    b.depends_on(&mut provider.dependency_graph.write().unwrap(), [&x]);
 
     /*
     let _three_sites = provider.module(
@@ -123,6 +122,8 @@ pub async fn main() -> Result<(), String> {
         },
     );
     */
+
+    dbg!(&provider.dependency_graph.read().unwrap());
 
     let state = provider.create().await?;
 
