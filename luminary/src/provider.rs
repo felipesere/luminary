@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use clutter::ResourceState;
 use petgraph::visit::Dfs;
@@ -11,7 +11,7 @@ use petgraph::{graph::NodeIndex, Graph};
 #[derive(Debug)]
 pub struct Provider<C: Cloud> {
     api: C::ProviderApi,
-    tracked_resources: RwLock<HashMap<Address, Arc<dyn Creatable<C>>>>,
+    tracked_resources: HashMap<Address, Arc<dyn Creatable<C>>>,
     current_address: Address,
     // TODO: Could this just be a segment?
     pub dependency_graph: Graph<Address, DependencyKind>,
@@ -133,10 +133,7 @@ impl<C: Cloud> Provider<C> {
     pub fn track(&mut self, real: Address, resource: Arc<dyn Creatable<C>>) {
         println!("Tracking {:?}", real);
 
-        self.tracked_resources
-            .write()
-            .unwrap()
-            .insert(real, resource);
+        self.tracked_resources.insert(real, resource);
     }
 
     pub fn module<MD>(&mut self, module_name: &'static str, definition: MD) -> Meta<Module<MD, C>>
@@ -184,13 +181,11 @@ impl<C: Cloud> Provider<C> {
 
         let mut dfs = Dfs::new(&deps, root);
 
-        let resources = self.tracked_resources.read().unwrap();
-
         let mut state = RealState::new();
         while let Some(visited) = dfs.next(&deps) {
             let address = deps.node_weight(visited).unwrap();
 
-            if let Some(resource) = resources.get(&address) {
+            if let Some(resource) = self.tracked_resources.get(&address) {
                 let fields = resource.create(&self.api).await?;
                 let resource_state = ResourceState::new(address, fields);
 
