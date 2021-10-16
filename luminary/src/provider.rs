@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use clutter::ResourceState;
+use petgraph::visit::Dfs;
 
 use crate::{Address, Cloud, Creatable, Module, ModuleDefinition, RealState, Resource, Segment};
 
@@ -152,8 +153,6 @@ impl<C: Cloud> Provider<C> {
         let module_address = current_address.child(module_segment.clone());
         self.current_address = module_address.clone();
 
-        // TODO: Very likely I will have to update `self` to use the thix idx as its root
-        // so that children of this module are attached correctly?
         let idx = self.dependency_graph.add_node(module_address.clone());
         self.dependency_graph
             .add_edge(current_idx, idx, DependencyKind::Module);
@@ -175,12 +174,29 @@ impl<C: Cloud> Provider<C> {
     }
 
     pub async fn create(&self) -> Result<RealState, String> {
-        let mut state = RealState::new();
-        for (object_segment, resource) in self.tracked_resources.write().unwrap().iter_mut() {
-            let fields = resource.create(&self.api).await?;
-            let resource_state = ResourceState::new(object_segment, fields);
+        let deps = &self.dependency_graph;
 
-            state.add(resource_state);
+        let root_address = Address::root();
+        let root = deps
+            .node_indices()
+            .find(|i| deps[*i] == root_address)
+            .unwrap();
+
+        let mut dfs = Dfs::new(&deps, root);
+
+        let resources = self.tracked_resources.read().unwrap();
+
+        let mut state = RealState::new();
+        while let Some(visited) = dfs.next(&deps) {
+            let address = deps.node_weight(visited).unwrap();
+
+            if let Some(resource) = resources.get(&address) {
+                let fields = resource.create(&self.api).await?;
+                let resource_state = ResourceState::new(address, fields);
+
+                state.add(resource_state);
+            }
+            println!("{}", address);
         }
 
         Ok(state)

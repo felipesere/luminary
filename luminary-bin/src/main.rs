@@ -1,16 +1,7 @@
-use aws::s3;
-use aws::Arn;
-use aws::Aws;
-use aws::AwsApi;
-use aws::AwsDetails;
-use luminary::Address;
-use luminary::DependencyKind;
+use aws::{s3, Arn, Aws, AwsApi, AwsDetails};
 use luminary::Provider;
 
 use luminary::ModuleDefinition;
-
-use petgraph::visit::Dfs;
-use petgraph::Graph;
 
 #[derive(Debug)]
 struct MyWebsite {
@@ -131,25 +122,6 @@ pub async fn main() -> Result<(), String> {
     let state = provider.create().await?;
 
     // state.print();
-
-    let deps: Graph<Address, DependencyKind> = provider.dependency_graph;
-
-    let root_address = Address::root();
-    let root = deps
-        .node_indices()
-        .find(|i| deps[*i] == root_address)
-        .unwrap();
-
-    let mut dfs = Dfs::new(&deps, root);
-
-    println!("[root]");
-
-    while let Some(visited) = dfs.next(&deps) {
-        let x = deps.node_weight(visited).unwrap();
-        println!("{}", x);
-    }
-
-    // println!("{}", Dot::new(&deps));
 
     Ok(())
 }

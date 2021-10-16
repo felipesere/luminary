@@ -5,7 +5,6 @@ version = "0.1.0"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-petgraph = "0.6.0"
 
 aws = { path = "../aws" }
 luminary = { path = "../luminary" }
