@@ -9,7 +9,9 @@ use luminary::Provider;
 
 use luminary::ModuleDefinition;
 
+use petgraph::visit::Dfs;
 use petgraph::{dot::Dot, Graph};
+use petgraph::visit::DfsPostOrder;
 
 #[derive(Debug)]
 struct MyWebsite {
@@ -133,7 +135,20 @@ pub async fn main() -> Result<(), String> {
 
     let deps: Graph<Address, DependencyKind> = provider.dependency_graph.into_inner().unwrap();
 
-    println!("{}", Dot::new(&deps));
+    let root_address = Address::root();
+    let root = deps.node_indices().find(|i| deps[*i] == root_address).unwrap();
+
+
+    let mut dfs = Dfs::new(&deps, root);
+
+    println!("[root]");
+
+    while let Some(visited) = dfs.next(&deps) {
+        let x = deps.node_weight(visited).unwrap();
+        println!("{}", x);
+    }
+
+    // println!("{}", Dot::new(&deps));
 
     Ok(())
 }

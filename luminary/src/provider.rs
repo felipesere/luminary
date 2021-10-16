@@ -280,14 +280,14 @@ mod test {
 
             let slow = provider.resource("the_slow_one", |_api| FakeResource(23));
 
-            let fast = provider
+            let _fast = provider
                 .resource("the_fast_one", |_api| OtherResource {
                     name: "other_one",
                     other: slow.output(),
                 })
                 .depends_on(&mut provider.dependency_graph.write().unwrap(), [&slow]);
 
-            provider.create().await;
+            provider.create().await.expect("should have been able to create resources from the provider");
 
             assert!(false);
         })
