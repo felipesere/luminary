@@ -5,7 +5,7 @@ use clutter::ResourceState;
 
 use crate::{Address, Cloud, Creatable, Module, ModuleDefinition, RealState, Resource, Segment};
 
-use smol_graph::{Edge, Graph, NodeIndex};
+use petgraph::{graph::NodeIndex, Graph};
 
 #[derive(Debug)]
 pub struct Provider<C: Cloud> {
@@ -17,7 +17,7 @@ pub struct Provider<C: Cloud> {
     pub root_idx: RwLock<NodeIndex>,
 }
 
-pub type Dependent = smol_graph::NodeIndex;
+pub type Dependent = NodeIndex;
 
 pub struct Meta<R> {
     inner: Arc<R>,
@@ -39,7 +39,7 @@ impl<R> Meta<R> {
         // TODO: how do I get this?!
         for dependant in other {
             let node_idx = dependant.as_ref();
-            graph.edge(Edge::new((self.anchor.idx, *node_idx), ()));
+            graph.add_edge(self.anchor.idx, *node_idx, ());
         }
     }
 }
@@ -72,7 +72,7 @@ impl<C: Cloud> Provider<C> {
         let root = Address::root();
         let mut deps = Graph::new();
 
-        let root_idx = deps.node(root.clone());
+        let root_idx = deps.add_node(root.clone());
         Self {
             api,
             tracked_resources: Default::default(),
@@ -99,13 +99,13 @@ impl<C: Cloud> Provider<C> {
 
         self.track(real.clone(), Arc::clone(&wrapped) as Arc<dyn Creatable<C>>);
 
-        let node_idx = self.dependency_graph.write().unwrap().node(real);
+        let node_idx = self.dependency_graph.write().unwrap().add_node(real);
 
         let root_idx = self.root_idx.read().unwrap().clone();
         self.dependency_graph
             .write()
             .unwrap()
-            .edge(Edge::new((root_idx, node_idx), ()));
+            .add_edge(root_idx, node_idx, ());
 
         let anchor = Anchor::new(node_idx);
 
@@ -145,7 +145,12 @@ impl<C: Cloud> Provider<C> {
             .dependency_graph
             .write()
             .unwrap()
-            .node(module_address.clone());
+            .add_node(module_address.clone());
+        self.dependency_graph
+            .write()
+            .unwrap()
+            .add_edge(current_idx, idx, ());
+
         *self.root_idx.write().unwrap() = idx;
 
         let outputs = definition.define(self);
@@ -177,7 +182,7 @@ impl<C: Cloud> Provider<C> {
 
 #[derive(Clone, Debug)]
 struct Anchor {
-    idx: smol_graph::NodeIndex,
+    idx: NodeIndex,
 }
 
 // TODO not really sure how this will work
