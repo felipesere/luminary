@@ -47,17 +47,6 @@ impl<R> Meta<R> {
             anchor: Anchor::new(address),
         }
     }
-    pub fn depends_on<const N: usize>(
-        &self,
-        graph: &mut Graph<Address, DependencyKind>,
-        other: [&dyn AsRef<Dependent>; N],
-    ) {
-        // TODO: how do I get this?!
-        for dependant in other {
-            let node_idx = dependant.as_ref();
-            graph.add_edge(self.anchor.idx, *node_idx, DependencyKind::Resource);
-        }
-    }
 }
 
 impl<R> std::ops::Deref for Meta<R> {
@@ -98,7 +87,12 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
-    pub fn resource<F, O>(&mut self, name: &'static str, builder: F) -> Meta<O>
+    pub fn resource<F, O, const N: usize>(
+        &mut self,
+        name: &'static str,
+        builder: F,
+        dependencies: [&dyn AsRef<Dependent>; N],
+    ) -> Meta<O>
     where
         F: FnOnce(&mut C::ProviderApi) -> O,
         O: Resource<C> + 'static,
@@ -121,6 +115,14 @@ impl<C: Cloud> Provider<C> {
         self.dependency_graph
             .add_edge(root_idx, node_idx, DependencyKind::Resource);
 
+        for dependency in dependencies {
+            self.dependency_graph.add_edge(
+                *dependency.as_ref(),
+                node_idx,
+                DependencyKind::Resource,
+            );
+        }
+
         let anchor = Anchor::new(node_idx);
 
         Meta {
@@ -136,7 +138,12 @@ impl<C: Cloud> Provider<C> {
         self.tracked_resources.insert(real, resource);
     }
 
-    pub fn module<MD>(&mut self, module_name: &'static str, definition: MD) -> Meta<Module<MD, C>>
+    pub fn module<MD, const N: usize>(
+        &mut self,
+        module_name: &'static str,
+        definition: MD,
+        dependencies: [&dyn AsRef<Dependent>; N],
+    ) -> Meta<Module<MD, C>>
     where
         MD: ModuleDefinition<C>,
     {
@@ -153,6 +160,11 @@ impl<C: Cloud> Provider<C> {
         let idx = self.dependency_graph.add_node(module_address.clone());
         self.dependency_graph
             .add_edge(current_idx, idx, DependencyKind::Module);
+
+        for dependency in dependencies {
+            self.dependency_graph
+                .add_edge(*dependency.as_ref(), idx, DependencyKind::Resource);
+        }
 
         self.root_idx = idx;
 
@@ -280,14 +292,16 @@ mod test {
         smol::block_on(async {
             let mut provider: Provider<FakeCloud> = Provider::new(FakeApi);
 
-            let slow = provider.resource("the_slow_one", |_api| FakeResource(23));
+            let slow = provider.resource("the_slow_one", |_api| FakeResource(23), []);
 
-            let _fast = provider
-                .resource("the_fast_one", |_api| OtherResource {
+            let _fast = provider.resource(
+                "the_fast_one",
+                |_api| OtherResource {
                     name: "other_one",
                     other: slow.output(),
-                })
-                .depends_on(&mut provider.dependency_graph, [&slow]);
+                },
+                [&slow],
+            );
 
             provider
                 .create()
