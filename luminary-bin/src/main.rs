@@ -123,14 +123,13 @@ pub async fn main() -> Result<(), String> {
         [&b],
     );
 
-    /*
     let _three_sites = provider.module(
         "three-websites",
         ThreeWebsites {
             sites: ("luminary-rs-1", "luminary-rs-2", "luminary-rs-3"),
         },
+        [&b],
     );
-    */
 
     let state = provider.create().await?;
 
