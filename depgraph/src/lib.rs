@@ -19,7 +19,7 @@ pub enum AddressPath {
     Leaf(Vec<Segment>),
 }
 
-impl Into<String> for AddressPath {
+impl Into<String> for &AddressPath {
     fn into(self) -> String {
         match self {
             AddressPath::Root => ".".into(),
@@ -80,7 +80,7 @@ pub struct DependencyIterator<'a, T, N> {
 }
 
 impl<'a, T, N> Iterator for DependencyIterator<'a, T, N> {
-    type Item = (&'a T, AddressPath);
+    type Item = (&'a T, &'a AddressPath);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(visited) = self.dfs.next(&self.deps.dependency_graph) {
@@ -89,7 +89,7 @@ impl<'a, T, N> Iterator for DependencyIterator<'a, T, N> {
             self.deps
                 .tracked_resources
                 .get(&address)
-                .map(|resource| (resource, address.clone()))
+                .map(|resource| (resource, address))
         } else {
             None
         }
