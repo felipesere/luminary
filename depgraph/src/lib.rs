@@ -19,9 +19,9 @@ pub enum AddressPath {
     Leaf(Vec<Segment>),
 }
 
-impl Into<String> for &AddressPath {
-    fn into(self) -> String {
-        match self {
+impl From<&AddressPath> for String {
+    fn from(path: &AddressPath) -> Self {
+        match path {
             AddressPath::Root => ".".into(),
             AddressPath::Leaf(segments) => segments
                 .iter()
@@ -88,11 +88,17 @@ impl<'a, T, N> Iterator for DependencyIterator<'a, T, N> {
 
             self.deps
                 .tracked_resources
-                .get(&address)
+                .get(address)
                 .map(|resource| (resource, address))
         } else {
             None
         }
+    }
+}
+
+impl<T, N> Default for DependencyTracking<T, N> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

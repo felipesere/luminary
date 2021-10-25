@@ -100,8 +100,8 @@ impl<C: Cloud> Provider<C> {
         let wrapped = Arc::new(object);
 
         let new_address = self.dependencies.child(
+            kind,
             name.to_string(),
-            kind.clone(),
             Arc::clone(&wrapped) as Arc<dyn Creatable<C>>,
             DependencyKind::Resource,
         );
@@ -160,8 +160,8 @@ impl<C: Cloud> Provider<C> {
 
     pub async fn create(&self) -> Result<RealState, String> {
         let mut state = RealState::new();
-        let mut iter = self.dependencies.iter();
-        while let Some((resource, address)) = iter.next() {
+
+        for (resource, address) in self.dependencies.iter() {
             let fields = resource.create(&self.api).await?;
             let resource_state = ResourceState::new(address, fields);
 

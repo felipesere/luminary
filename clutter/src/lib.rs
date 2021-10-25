@@ -7,6 +7,12 @@ pub struct State {
     resources: Vec<ResourceState>,
 }
 
+impl Default for State {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl State {
     pub fn new() -> Self {
         Self {
@@ -46,13 +52,12 @@ enum Change {
     OnlyRight(Field),
 }
 
-impl<L, R> Into<Change> for (L, R)
+impl<L, R> From<(L, R)> for Change
 where
     L: Into<Field>,
     R: Into<Field>,
 {
-    fn into(self) -> Change {
-        let (l, r) = self;
+    fn from((l, r): (L, R)) -> Change {
         Change::Changed(l.into(), r.into())
     }
 }
@@ -106,8 +111,9 @@ impl Fields {
         for k in &our_keys {
             let idx = other_keys.iter().position(|key| key == k);
 
+            let ours = self.0.get(*k).expect("checked the key before");
+
             if let Some(idx) = idx {
-                let ours = self.0.get(*k).expect("checked the key before");
                 let others = other.0.get(*k).expect("checked the key before");
 
                 if ours != others {
@@ -118,8 +124,6 @@ impl Fields {
                 }
                 other_keys.remove(idx);
             } else {
-                let ours = self.0.get(*k).expect("checked the key before");
-
                 differences.push(Difference {
                     field_name: k.to_string(),
                     change: Change::OnlyLeft(ours.clone()),
