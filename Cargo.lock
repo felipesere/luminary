@@ -423,6 +423,7 @@ dependencies = [
 name = "depgraph"
 version = "0.1.0"
 dependencies = [
+ "fixedbitset",
  "petgraph",
 ]
 
@@ -812,9 +813,9 @@ dependencies = [
  "async-io",
  "async-trait",
  "clutter",
+ "depgraph",
  "dyn-clone",
  "futures-test",
- "petgraph",
  "smol",
 ]
 

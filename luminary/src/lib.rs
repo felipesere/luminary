@@ -13,81 +13,6 @@ pub use value::Value;
 // Will likely need some internal mutability
 pub struct System {}
 
-// The address of an object in Luminary
-#[derive(Hash, PartialEq, Eq, Clone)]
-pub struct Segment {
-    pub name: String,
-    pub kind: String,
-}
-
-impl ToString for Segment {
-    fn to_string(&self) -> String {
-        format!("{}.{}", self.kind, self.name)
-    }
-}
-
-impl std::fmt::Debug for Segment {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.kind, self.name)
-    }
-}
-
-// The address of an object in Luminary
-#[derive(Hash, PartialEq, Eq, Clone)]
-pub struct Address(Vec<Segment>);
-
-impl std::fmt::Display for Address {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::fmt::Debug for Address {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let address = self
-            .0
-            .iter()
-            .map(|s| format!("{:?}", s))
-            .collect::<Vec<_>>()
-            .join("/");
-
-        write!(f, "{}", address)
-    }
-}
-
-impl From<&Address> for String {
-    fn from(address: &Address) -> Self {
-        address
-            .0
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>()
-            .join("/")
-    }
-}
-
-impl Address {
-    pub fn root() -> Address {
-        Address(vec![])
-    }
-
-    pub fn child(&self, child: Segment) -> Address {
-        let mut other = self.clone();
-
-        other.0.push(child);
-
-        other
-    }
-
-    pub fn parent(&self) -> Address {
-        let mut other = self.clone();
-        if other.0.len() > 1 {
-            other.0.pop();
-        }
-        other
-    }
-}
-
 // Sort of part of the addressing system?
 // A module should form "a scope",
 // Any submodule should a fresh scope with
@@ -130,6 +55,7 @@ pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {}
 
 #[async_trait]
 pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
+    // TODO: consider lifting this to an associated type `&'static str`
     fn kind(&self) -> &'static str;
     async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<Fields, String>;
 }

@@ -1,21 +1,16 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use clutter::ResourceState;
-use petgraph::visit::Dfs;
+use depgraph::{Address, DependencyTracking};
 
-use crate::{Address, Cloud, Creatable, Module, ModuleDefinition, RealState, Resource, Segment};
+use async_trait::async_trait;
 
-use petgraph::{graph::NodeIndex, Graph};
+use crate::{Cloud, Creatable, Module, ModuleDefinition, RealState, Resource};
 
 #[derive(Debug)]
 pub struct Provider<C: Cloud> {
     api: C::ProviderApi,
-    tracked_resources: HashMap<Address, Arc<dyn Creatable<C>>>,
-    current_address: Address,
-    // TODO: Could this just be a segment?
-    pub dependency_graph: Graph<Address, DependencyKind>,
-    pub root_idx: NodeIndex,
+    dependencies: DependencyTracking<Arc<dyn Creatable<C>>, DependencyKind>,
 }
 
 #[derive(Debug)]
@@ -33,20 +28,9 @@ impl std::fmt::Display for DependencyKind {
     }
 }
 
-pub type Dependent = NodeIndex;
-
 pub struct Meta<R> {
     inner: Arc<R>,
-    anchor: Anchor,
-}
-
-impl<R> Meta<R> {
-    fn new(object: Arc<R>, address: NodeIndex) -> Self {
-        Meta {
-            inner: object,
-            anchor: Anchor::new(address),
-        }
-    }
+    address: Address,
 }
 
 impl<R> std::ops::Deref for Meta<R> {
@@ -57,9 +41,9 @@ impl<R> std::ops::Deref for Meta<R> {
     }
 }
 
-impl<R> AsRef<Dependent> for Meta<R> {
-    fn as_ref(&self) -> &Dependent {
-        &self.anchor.idx
+impl<R> AsRef<Address> for Meta<R> {
+    fn as_ref(&self) -> &Address {
+        &self.address
     }
 }
 
@@ -67,23 +51,36 @@ impl<R> Clone for Meta<R> {
     fn clone(&self) -> Self {
         Meta {
             inner: Arc::clone(&self.inner),
-            anchor: self.anchor.clone(),
+            address: self.address.clone(),
         }
+    }
+}
+
+/*
+ * TODO: need to move this to a better place
+ */
+#[derive(Debug)]
+struct FelipeFakeModule;
+
+#[async_trait]
+impl<C: Cloud> Creatable<C> for FelipeFakeModule {
+    fn kind(&self) -> &'static str {
+        "felipe_fake_module"
+    }
+
+    async fn create(
+        &self,
+        _provider: &<C as Cloud>::ProviderApi,
+    ) -> Result<clutter::Fields, String> {
+        Ok(clutter::Fields::empty())
     }
 }
 
 impl<C: Cloud> Provider<C> {
     pub fn new(api: C::ProviderApi) -> Self {
-        let root = Address::root();
-        let mut dependency_graph = Graph::new();
-
-        let root_idx = dependency_graph.add_node(root.clone());
         Self {
             api,
-            tracked_resources: Default::default(),
-            current_address: root,
-            dependency_graph,
-            root_idx,
+            dependencies: DependencyTracking::new(),
         }
     }
 
@@ -91,134 +88,87 @@ impl<C: Cloud> Provider<C> {
         &mut self,
         name: &'static str,
         builder: F,
-        dependencies: [&dyn AsRef<Dependent>; N],
+        dependencies: [&dyn AsRef<Address>; N],
     ) -> Meta<O>
     where
         F: FnOnce(&mut C::ProviderApi) -> O,
         O: Resource<C> + 'static,
     {
         let object = builder(&mut self.api);
-        let object_segment = Segment {
-            name: name.to_string(),
-            kind: object.kind().to_string(),
-        };
 
+        let kind = object.kind().to_string();
         let wrapped = Arc::new(object);
 
-        let real = self.current_address.child(object_segment);
-
-        self.track(real.clone(), Arc::clone(&wrapped) as Arc<dyn Creatable<C>>);
-
-        let node_idx = self.dependency_graph.add_node(real);
-
-        let root_idx = self.root_idx.clone();
-        self.dependency_graph
-            .add_edge(root_idx, node_idx, DependencyKind::Resource);
+        let new_address = self.dependencies.child(
+            name.to_string(),
+            kind.clone(),
+            Arc::clone(&wrapped) as Arc<dyn Creatable<C>>,
+            DependencyKind::Resource,
+        );
 
         for dependency in dependencies {
-            self.dependency_graph.add_edge(
-                *dependency.as_ref(),
-                node_idx,
+            self.dependencies.add_dependency(
+                dependency.as_ref(),
+                &new_address,
                 DependencyKind::Resource,
             );
         }
 
-        let anchor = Anchor::new(node_idx);
-
         Meta {
             inner: wrapped,
-            anchor,
+            address: new_address,
         }
-    }
-
-    // TODO: This will likely go away at some point
-    pub fn track(&mut self, real: Address, resource: Arc<dyn Creatable<C>>) {
-        println!("Tracking {:?}", real);
-
-        self.tracked_resources.insert(real, resource);
     }
 
     pub fn module<MD, const N: usize>(
         &mut self,
         module_name: &'static str,
         definition: MD,
-        dependencies: [&dyn AsRef<Dependent>; N],
+        dependencies: [&dyn AsRef<Address>; N],
     ) -> Meta<Module<MD, C>>
     where
         MD: ModuleDefinition<C>,
     {
-        let current_address = self.current_address.clone();
-        let current_idx = self.root_idx.clone();
+        let not_really_the_module = FelipeFakeModule;
+        let new_address = self.dependencies.child(
+            "module",
+            module_name,
+            Arc::new(not_really_the_module),
+            DependencyKind::Module,
+        );
 
-        let module_segment = Segment {
-            kind: "module".into(),
-            name: module_name.into(),
-        };
-        let module_address = current_address.child(module_segment.clone());
-        self.current_address = module_address.clone();
-
-        let idx = self.dependency_graph.add_node(module_address.clone());
-        self.dependency_graph
-            .add_edge(current_idx, idx, DependencyKind::Module);
+        let old_address = self.dependencies.swap_own_address(new_address);
+        let outputs = definition.define(self);
+        let new_address = self.dependencies.swap_own_address(old_address);
 
         for dependency in dependencies {
-            self.dependency_graph
-                .add_edge(*dependency.as_ref(), idx, DependencyKind::Resource);
+            self.dependencies.add_dependency(
+                dependency.as_ref(),
+                &new_address,
+                DependencyKind::Resource,
+            );
         }
-
-        self.root_idx = idx;
-
-        let outputs = definition.define(self);
-
-        self.current_address = current_address;
-        self.root_idx = current_idx;
 
         Meta {
             inner: Arc::new(Module {
                 name: module_name,
                 outputs,
             }),
-            anchor: Anchor::new(idx),
+            address: new_address,
         }
     }
 
     pub async fn create(&self) -> Result<RealState, String> {
-        let deps = &self.dependency_graph;
-
-        let root_address = Address::root();
-        let root = deps
-            .node_indices()
-            .find(|i| deps[*i] == root_address)
-            .unwrap();
-
-        let mut dfs = Dfs::new(&deps, root);
-
         let mut state = RealState::new();
-        while let Some(visited) = dfs.next(&deps) {
-            let address = deps.node_weight(visited).unwrap();
+        let mut iter = self.dependencies.iter();
+        while let Some((resource, address)) = iter.next() {
+            let fields = resource.create(&self.api).await?;
+            let resource_state = ResourceState::new(address, fields);
 
-            if let Some(resource) = self.tracked_resources.get(&address) {
-                let fields = resource.create(&self.api).await?;
-                let resource_state = ResourceState::new(address, fields);
-
-                state.add(resource_state);
-            }
-            println!("{}", address);
+            state.add(resource_state);
         }
 
         Ok(state)
-    }
-}
-
-#[derive(Clone, Debug)]
-struct Anchor {
-    idx: NodeIndex,
-}
-
-// TODO not really sure how this will work
-impl Anchor {
-    fn new(idx: NodeIndex) -> Self {
-        Anchor { idx }
     }
 }
 
