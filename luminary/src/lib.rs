@@ -10,15 +10,6 @@ pub use provider::DependencyKind;
 pub use provider::Provider;
 pub use value::Value;
 
-// Will likely need some internal mutability
-pub struct System {}
-
-// Sort of part of the addressing system?
-// A module should form "a scope",
-// Any submodule should a fresh scope with
-// a parent scope...
-pub struct Scope {}
-
 pub struct Module<MD, C>
 where
     C: Cloud,
@@ -55,7 +46,6 @@ pub trait Resource<C: Cloud>: Creatable<C> + std::fmt::Debug + Send + Sync {}
 
 #[async_trait]
 pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
-    // TODO: consider lifting this to an associated type `&'static str`
     fn kind(&self) -> &'static str;
     async fn create(&self, provider: &<C as Cloud>::ProviderApi) -> Result<Fields, String>;
 }
