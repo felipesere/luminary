@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use clutter::ResourceState;
 use depgraph::{Address, DependencyTracking};
+use tracing::{info, instrument};
 
-use async_trait::async_trait;
 
 use crate::{Cloud, Creatable, Module, ModuleDefinition, RealState, Resource};
 
@@ -84,6 +85,7 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
+    #[instrument(level="info", skip(self, builder, dependencies), fields(name, cloud = %C::NAME))]
     pub fn resource<F, O, const N: usize>(
         &mut self,
         name: &'static str,
@@ -120,6 +122,7 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
+    #[instrument(level="info", skip(self, definition, dependencies), fields(module_name, definition = std::any::type_name::<MD>(), cloud = %C::NAME))]
     pub fn module<MD, const N: usize>(
         &mut self,
         module_name: &'static str,
@@ -136,6 +139,8 @@ impl<C: Cloud> Provider<C> {
             Arc::new(not_really_the_module),
             DependencyKind::Module,
         );
+
+        info!("Hi there!");
 
         let old_address = self.dependencies.swap_own_address(new_address);
         let outputs = definition.define(self);
@@ -197,7 +202,7 @@ mod test {
             "fake_resource"
         }
 
-        async fn create(&self, provider: &FakeApi) -> Result<clutter::Fields, String> {
+        async fn create(&self, _provider: &FakeApi) -> Result<clutter::Fields, String> {
             use async_io::Timer;
             use std::time::Duration;
 
@@ -222,7 +227,7 @@ mod test {
             "other_resource"
         }
 
-        async fn create(&self, provider: &FakeApi) -> Result<clutter::Fields, String> {
+        async fn create(&self, _provider: &FakeApi) -> Result<clutter::Fields, String> {
             // TODO: consider a sleep here...
             println!("Creating resource {} with {}", self.name, self.other.get());
             Ok(clutter::Fields::empty())
@@ -235,6 +240,7 @@ mod test {
 
     impl crate::Cloud for FakeCloud {
         type ProviderApi = FakeApi;
+        const NAME: &'static str = "FakeCloud";
     }
 
     #[test]

@@ -13,6 +13,7 @@ async-trait = "^0.1"
 dyn-clone = "1.0.4"
 clutter  = { path = "../clutter" }
 depgraph = { path = "../depgraph" }
+tracing = "0.1.29"
 
 [dev-dependencies]
 futures-test = "0.3.17"

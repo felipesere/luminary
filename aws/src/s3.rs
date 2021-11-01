@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use aws_sdk_s3::{ByteStream, Client};
 
 use luminary::{Creatable, Fields, Resource, Value};
+use tracing::{info};
 
 use std::default::Default;
 use std::rc::Rc;
@@ -46,10 +47,9 @@ impl Creatable<Aws> for Bucket {
         let client = Client::from_conf(config);
 
         let request = client.create_bucket().bucket(&self.name);
-        println!("creating {}", self.name);
+        info!("creating {}", self.name);
         let response = request.send().await.map_err(|e| e.to_string())?;
-        println!("created {}", self.name);
-        dbg!(response);
+        info!("created {}", self.name);
 
         let mut fields = Fields::empty().with_text("id", self.name.clone());
 
@@ -119,10 +119,8 @@ impl Creatable<Aws> for BucketObject {
             .content_type(&self.content_type)
             .body(ByteStream::from(self.content.clone().into_bytes()));
 
-        println!("Creating object for {}/{}", &bucket_name, &self.key);
+        info!("creating object for {}/{}", &bucket_name, &self.key);
         let response = request.send().await.map_err(|e| e.to_string())?;
-
-        dbg!(response);
 
         Ok(Fields::empty())
     }

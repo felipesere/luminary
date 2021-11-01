@@ -39,6 +39,7 @@ pub enum Aws {}
 
 impl Cloud for Aws {
     type ProviderApi = AwsApi;
+    const NAME: &'static str = "AWS";
 }
 
 #[derive(Clone, Debug)]

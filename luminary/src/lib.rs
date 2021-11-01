@@ -55,6 +55,7 @@ pub trait Creatable<C: Cloud>: std::fmt::Debug + Send + Sync {
 /// like `Aws`, or `Azure` and `GCP`
 pub trait Cloud: Send + Sync {
     type ProviderApi: Send + Sync;
+    const NAME: &'static str;
 }
 
 /// The state as it is known to our Cloud providers

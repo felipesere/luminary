@@ -3,6 +3,10 @@ use luminary::Provider;
 
 use luminary::ModuleDefinition;
 
+use tracing_log::LogTracer;
+use tracing_subscriber::{EnvFilter, Registry, fmt};
+use tracing_subscriber::layer::SubscriberExt;
+
 #[derive(Debug)]
 struct MyWebsite {
     bucket_name: &'static str,
@@ -103,6 +107,14 @@ impl ModuleDefinition<Aws> for ThreeWebsites {
 
 #[tokio::main]
 pub async fn main() -> Result<(), String> {
+    LogTracer::init().expect("Unable to setup log tracer!");
+
+   let subscriber = Registry::default()
+        .with(EnvFilter::new("INFO"))
+        .with(fmt::Layer::default());
+
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+
     let details = AwsDetails::from_env().map_err(|e| format!("Missing env key: {}", e))?;
 
     let api = AwsApi::new(details);
