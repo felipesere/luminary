@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use std::collections::HashMap;
+use std::fmt::Display;
 
 use fixedbitset::FixedBitSet;
 use petgraph::graph::NodeIndex;
@@ -10,6 +11,12 @@ use petgraph::Graph;
 pub struct Address {
     node: NodeIndex,
     human: AddressPath,
+}
+
+impl Display for Address {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.human)
+    }
 }
 
 /// internal
@@ -28,6 +35,21 @@ impl From<&AddressPath> for String {
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>()
                 .join("."),
+        }
+    }
+}
+
+impl Display for AddressPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AddressPath::Root =>  write!(f, "$"),
+            AddressPath::Leaf(segments) => {
+                write!(f, "$")?;
+                for segment in segments {
+                    write!(f, ".{}", segment)?;
+                };
+                Ok(())
+            }
         }
     }
 }

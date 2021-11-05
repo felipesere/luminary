@@ -48,7 +48,7 @@ impl Creatable<Aws> for Bucket {
 
         let request = client.create_bucket().bucket(&self.name);
         info!("creating {}", self.name);
-        let response = request.send().await.map_err(|e| e.to_string())?;
+        request.send().await.map_err(|e| e.to_string())?;
         info!("created {}", self.name);
 
         let mut fields = Fields::empty().with_text("id", self.name.clone());
@@ -120,7 +120,7 @@ impl Creatable<Aws> for BucketObject {
             .body(ByteStream::from(self.content.clone().into_bytes()));
 
         info!("creating object for {}/{}", &bucket_name, &self.key);
-        let response = request.send().await.map_err(|e| e.to_string())?;
+        request.send().await.map_err(|e| e.to_string())?;
 
         Ok(Fields::empty())
     }

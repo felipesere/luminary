@@ -3,8 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use clutter::ResourceState;
 use depgraph::{Address, DependencyTracking};
-use tracing::{info, instrument};
-
+use tracing::{Level, event, instrument};
 
 use crate::{Cloud, Creatable, Module, ModuleDefinition, RealState, Resource};
 
@@ -85,7 +84,7 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
-    #[instrument(level="info", skip(self, builder, dependencies), fields(name, cloud = %C::NAME))]
+    #[instrument(level="info", skip(self, name, builder, dependencies), fields(cloud = %C::NAME))]
     pub fn resource<F, O, const N: usize>(
         &mut self,
         name: &'static str,
@@ -107,6 +106,8 @@ impl<C: Cloud> Provider<C> {
             Arc::clone(&wrapped) as Arc<dyn Creatable<C>>,
             DependencyKind::Resource,
         );
+
+        event!(Level::INFO, "defined resource at {}", new_address);
 
         for dependency in dependencies {
             self.dependencies.add_dependency(
@@ -140,8 +141,6 @@ impl<C: Cloud> Provider<C> {
             DependencyKind::Module,
         );
 
-        info!("Hi there!");
-
         let old_address = self.dependencies.swap_own_address(new_address);
         let outputs = definition.define(self);
         let new_address = self.dependencies.swap_own_address(old_address);
@@ -163,6 +162,7 @@ impl<C: Cloud> Provider<C> {
         }
     }
 
+    #[instrument(level="info", skip(self), fields(cloud=C::NAME))]
     pub async fn create(&self) -> Result<RealState, String> {
         let mut state = RealState::new();
 
